@@ -31,3 +31,4 @@ launcher/Run
 launcher/Task
 launcher/fabricloader.log
 launcher/hs_err_pid*.log
+api/data.json

@@ -427,6 +427,7 @@ public class DiscordRPC {
     // ── RPC ──────────────────────────────────────────────────────────
 
     private String currentServerIp = "";
+    private String currentMcVersion = "";
     public void setPresence(String details, String state) {
         setPresenceWithServer(details, state, currentServerIp);
     }
@@ -442,8 +443,15 @@ public class DiscordRPC {
                 ts.addProperty("start", startTime);
                 activity.add("timestamps", ts);
                 JsonObject assets = new JsonObject();
-                assets.addProperty("large_image", "nokta_logo");
-                assets.addProperty("large_text", "Nokta Client");
+                // MC açıkken Minecraft'ın kendi ikonunu kullan
+                String largeImg = currentMcVersion != null && !currentMcVersion.isEmpty()
+                    ? "minecraft" : "nokta_logo";
+                String largeText = currentMcVersion != null && !currentMcVersion.isEmpty()
+                    ? "Minecraft " + currentMcVersion : "Nokta Launcher";
+                assets.addProperty("large_image", largeImg);
+                assets.addProperty("large_text", largeText);
+                assets.addProperty("small_image", "nokta_logo");
+                assets.addProperty("small_text", "Nokta Client");
                 activity.add("assets", assets);
                 // Sunucuya katıl butonu
                 if (!currentServerIp.isEmpty() && !currentServerIp.equals("Singleplayer")) {
@@ -466,11 +474,12 @@ public class DiscordRPC {
         setPresence("Nokta Client", "Minecraft " + v + " oynuyor");
     }
     public void setPlayingMinecraft(String mcVersion, String loader) {
+        currentMcVersion = mcVersion != null ? mcVersion : "";
         startTime = System.currentTimeMillis() / 1000;
         String loaderStr = (loader != null && !loader.equals("Vanilla")) ? loader : "Vanilla";
         setPresence("Nokta Client", "Minecraft " + mcVersion + " · " + loaderStr);
     }
-    public void setInLauncher()   { setPresence("Nokta Launcher", "Oyun seçiyor..."); }
+    public void setInLauncher()   { currentMcVersion = ""; setPresence("Nokta Launcher", "Oyun seçiyor..."); }
     public void setPlayingOnServer(String serverIp, String mcVersion, String loader) {
         String loaderStr = (loader != null && !loader.equals("Vanilla")) ? loader : "Vanilla";
         setPresenceWithServer("Minecraft " + mcVersion + " · " + loaderStr,

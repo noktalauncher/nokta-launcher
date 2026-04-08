@@ -46,6 +46,9 @@ public class PlayScreen extends VBox {
     private Button           actionBtn;
     private Button           installBtn;
     private VBox             logBox;
+    private VBox             chatLogBox;
+    private final java.util.List<String> mcLogLines  = new java.util.ArrayList<>();
+    private final java.util.List<String> chatLogLines = new java.util.ArrayList<>();
     private TextField        userField;
 
     public PlayScreen() {
@@ -171,13 +174,34 @@ public class PlayScreen extends VBox {
 
         progressCard.getChildren().addAll(statusLabel, progressBar, progressLabel);
 
-        // Log alanı
+        // Log alanı — 2 sekme: Kurulum/MC Logu + Chat Logu
         logBox = new VBox(3);
-        logBox.setPadding(new Insets(10));
-        logBox.setStyle(
-            "-fx-background-color:#00000044;-fx-background-radius:8;" +
-            "-fx-border-color:#1a1a28;-fx-border-radius:8;-fx-border-width:1;");
-        logBox.setVisible(true);
+        logBox.setPadding(new Insets(6));
+        logBox.setStyle("-fx-background-color:#00000044;-fx-background-radius:8;");
+
+        chatLogBox = new VBox(3);
+        chatLogBox.setPadding(new Insets(6));
+        chatLogBox.setStyle("-fx-background-color:#00000044;-fx-background-radius:8;");
+
+        javafx.scene.control.ScrollPane logScroll = new javafx.scene.control.ScrollPane(logBox);
+        logScroll.setFitToWidth(true);
+        logScroll.setPrefHeight(180);
+        logScroll.setStyle("-fx-background:#00000000;-fx-background-color:transparent;");
+
+        javafx.scene.control.ScrollPane chatScroll = new javafx.scene.control.ScrollPane(chatLogBox);
+        chatScroll.setFitToWidth(true);
+        chatScroll.setPrefHeight(180);
+        chatScroll.setStyle("-fx-background:#00000000;-fx-background-color:transparent;");
+
+        javafx.scene.control.Tab logTab = new javafx.scene.control.Tab("📋 Kurulum Logu", logScroll);
+        logTab.setClosable(false);
+        javafx.scene.control.Tab chatTab = new javafx.scene.control.Tab("💬 Chat Logu", chatScroll);
+        chatTab.setClosable(false);
+
+        javafx.scene.control.TabPane logTabPane = new javafx.scene.control.TabPane(logTab, chatTab);
+        logTabPane.setStyle("-fx-background-color:#00000044;-fx-tab-min-height:30px;");
+        logTabPane.setVisible(true);
+        logTabPane.setPrefHeight(220);
 
         // Butonlar
         HBox btnRow = new HBox(12);
@@ -200,7 +224,7 @@ public class PlayScreen extends VBox {
         actionBtn.setOnAction(e -> launchGame());
 
         btnRow.getChildren().addAll(installBtn, actionBtn);
-        getChildren().addAll(title, sub, mainCard, progressCard, logBox, btnRow);
+        getChildren().addAll(title, sub, mainCard, progressCard, logTabPane, btnRow);
     }
 
     private void loadVersionsAsync() {
@@ -386,6 +410,22 @@ public class PlayScreen extends VBox {
                     if (discordRPC != null)
                         discordRPC.setPlayingMinecraft(finalVersionId, finalLoader);
                 });
+                // Canlı playtime sayacı — her MC açılışında 0'dan başlar
+                final long[] sessionStart = {System.currentTimeMillis()};
+                java.util.concurrent.ScheduledExecutorService ticker =
+                    java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+                ticker.scheduleAtFixedRate(() -> {
+                    long elapsed = System.currentTimeMillis() - sessionStart[0];
+                    long mins = (elapsed / 60000) % 60;
+                    long hours = elapsed / 3600000;
+                    String t = hours > 0 ? hours + "s " + mins + "d" : mins + " dk";
+                    Platform.runLater(() -> {
+                        if (MainWindow.instance != null)
+                            MainWindow.instance.updateSessionPlaytime(t);
+                    });
+                }, 5, 5, java.util.concurrent.TimeUnit.SECONDS);
+
+                // Log okuyucu — FPS parse + iki log (komut / chat)
                 new Thread(() -> {
                     try {
                         var reader = new java.io.BufferedReader(
@@ -393,9 +433,28 @@ public class PlayScreen extends VBox {
                         String line2;
                         while ((line2 = reader.readLine()) != null) {
                             final String l = line2;
-                            Platform.runLater(() -> addLog(l));
+                            // FPS parse: "[xx fps]" veya "fps:" içeren satır
+                            if (l.contains(" fps") || l.contains("FPS")) {
+                                java.util.regex.Matcher m = java.util.regex.Pattern
+                                    .compile("(\\d+)\\s*fps", java.util.regex.Pattern.CASE_INSENSITIVE)
+                                    .matcher(l);
+                                if (m.find()) {
+                                    final String fps = m.group(1);
+                                    Platform.runLater(() -> {
+                                        if (MainWindow.instance != null)
+                                            MainWindow.instance.updateFps(fps);
+                                    });
+                                }
+                            }
+                            // Chat logu: [CHAT] içeren satırlar
+                            if (l.contains("[CHAT]") || l.contains("]: <")) {
+                                Platform.runLater(() -> addChatLog(l));
+                            } else {
+                                Platform.runLater(() -> addLog(l));
+                            }
                         }
                     } catch (Exception ignored) {}
+                    ticker.shutdownNow();
                 }, "mc-log-reader").start();
 
                 // Oyun çalışırken sunucu bilgisini Discord'a yansıt
@@ -481,7 +540,16 @@ public class PlayScreen extends VBox {
                         "-fx-effect:dropshadow(gaussian,#6c63ff88,12,0,0,3);");
                     actionBtn.setOnAction(ev -> launchGame());
                     actionBtn.setDisable(false);
-                    addLog("⏹ Minecraft kapatıldı. Exit: " + exitCode);
+                    if (exitCode != 0) {
+                        // Crash sebebini son log satırlarından bul
+                        String crashReason = mcLogLines.stream()
+                            .filter(l -> l.contains("ERROR") || l.contains("Exception") || l.contains("FATAL") || l.contains("crash"))
+                            .reduce((a, b) -> b).orElse("Bilinmeyen hata");
+                        addLog("💥 Minecraft çöktü! Sebep: " + crashReason);
+                        Platform.runLater(() -> setStatus("💥 Çökme tespit edildi: " + crashReason.substring(0, Math.min(80, crashReason.length())), "#f04040"));
+                    } else {
+                        addLog("⏹ Minecraft kapatıldı. Exit: " + exitCode);
+                    }
                     if (discordRPC != null) discordRPC.setInLauncher();
                 });
             } catch (Exception ex) {
@@ -507,16 +575,30 @@ public class PlayScreen extends VBox {
     }
 
     private void addLog(String msg) {
-        Platform.runLater(() -> {
-            Label log = new Label(msg);
-            log.setStyle("-fx-text-fill:#555577;-fx-font-size:11px;-fx-font-family:monospace;");
-            log.setWrapText(true);
-            logBox.getChildren().add(0, log);
-            if (logBox.getChildren().size() > 30)
-                logBox.getChildren().remove(logBox.getChildren().size() - 1);
+        mcLogLines.add(msg);
+        Label lbl = new Label(msg);
+        lbl.setStyle("-fx-text-fill:#aaaacc;-fx-font-size:11px;-fx-font-family:monospace;");
+        lbl.setWrapText(true);
+        logBox.getChildren().add(lbl);
+        // Otomatik scroll
+        javafx.application.Platform.runLater(() -> {
+            javafx.scene.Parent p = logBox.getParent();
+            if (p instanceof javafx.scene.control.ScrollPane sp) sp.setVvalue(1.0);
         });
     }
-
+    private void addChatLog(String msg) {
+        // "[CHAT] <oyuncu> mesaj" formatını temizle
+        String clean = msg.replaceAll(".*\\[CHAT\\]\\s*", "").replaceAll(".*\\]: ", "");
+        chatLogLines.add(clean);
+        Label lbl = new Label(clean);
+        lbl.setStyle("-fx-text-fill:#ddddff;-fx-font-size:12px;");
+        lbl.setWrapText(true);
+        chatLogBox.getChildren().add(lbl);
+        javafx.application.Platform.runLater(() -> {
+            javafx.scene.Parent p = chatLogBox.getParent();
+            if (p instanceof javafx.scene.control.ScrollPane sp) sp.setVvalue(1.0);
+        });
+    }
     private void savePrefs() {
         try {
             com.google.gson.JsonObject j = new com.google.gson.JsonObject();

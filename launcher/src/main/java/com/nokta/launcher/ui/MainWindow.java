@@ -439,10 +439,10 @@ public class MainWindow {
 
         HBox statsRow = new HBox(16);
         statsRow.getChildren().addAll(
-            statCard("🎮", "Toplam Oyun",  totalPlayStr, "#6c63ff"),
+            statCard("🎮", "Toplam Oyun",  "0 dk",       "#6c63ff", "playtime"),
             statCard("🧩", "Yüklü Mod",    modCountStr,  "#3b82f6"),
             statCard("📦", "Sürümler",     versionCount, "#10b981"),
-            statCard("⚡", "Son FPS",      "— fps",      "#f59e0b")
+            statCard("⚡", "Son FPS",      "— fps",      "#f59e0b", "fps")
         );
 
         Label newsT = new Label("📰  Son Güncellemeler");
@@ -459,8 +459,7 @@ public class MainWindow {
         );
 
         // Spotify bağlantı kartı
-        VBox spotifyConnectCard = buildSpotifyConnectCard();
-        c.getChildren().addAll(clockBox, welcome, sub, lastPlayedCard, statsRow, spotifyConnectCard, newsT, newsRow);
+        c.getChildren().addAll(clockBox, welcome, sub, lastPlayedCard, statsRow, newsT, newsRow);
         return c;
     }
 
@@ -571,6 +570,20 @@ public class MainWindow {
         card.getChildren().add(row);
         return card;
     }
+
+    // ── Canlı MC istatistikleri ───────────────────────────────────────────
+    private javafx.scene.control.Label sessionPlaytimeLabel = null;
+    private javafx.scene.control.Label fpsLabel = null;
+
+    public void updateSessionPlaytime(String t) {
+        if (sessionPlaytimeLabel != null) sessionPlaytimeLabel.setText(t);
+    }
+    public void updateFps(String fps) {
+        if (fpsLabel != null) fpsLabel.setText(fps + " fps");
+    }
+    public void registerPlaytimeLabel(javafx.scene.control.Label l) { sessionPlaytimeLabel = l; }
+    public void registerFpsLabel(javafx.scene.control.Label l)      { fpsLabel = l; }
+
 
     private String getPlayerName() {
         try {
@@ -710,6 +723,9 @@ public class MainWindow {
     }
 
     private VBox statCard(String icon, String label, String value, String color) {
+        return statCard(icon, label, value, color, null);
+    }
+    private VBox statCard(String icon, String label, String value, String color, String registerId) {
         VBox card = new VBox(6);
         card.setPadding(new Insets(20, 24, 20, 24));
         HBox.setHgrow(card, Priority.ALWAYS);
@@ -719,6 +735,8 @@ public class MainWindow {
         l1.setStyle("-fx-text-fill:#555577;-fx-font-size:12px;");
         Label l2 = new Label(value);
         l2.setStyle("-fx-text-fill:" + color + ";-fx-font-size:22px;-fx-font-weight:bold;");
+        if ("fps".equals(registerId))      fpsLabel = l2;
+        if ("playtime".equals(registerId)) sessionPlaytimeLabel = l2;
         card.getChildren().addAll(l1, l2);
         return card;
     }

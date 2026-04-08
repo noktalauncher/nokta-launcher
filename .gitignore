@@ -21,3 +21,13 @@ Thumbs.db
 # Hassas bilgiler
 *.env
 local.properties
+
+# Derlenmiş class dosyaları
+**/bin/
+**/*.class
+launcher/:run
+launcher/Compilation
+launcher/Run
+launcher/Task
+launcher/fabricloader.log
+launcher/hs_err_pid*.log

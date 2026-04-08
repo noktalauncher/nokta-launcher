@@ -13,7 +13,7 @@ public class NokTaConfig {
         "nokta.api.url",
         System.getenv("NOKTA_API_URL") != null
             ? System.getenv("NOKTA_API_URL")
-            : "http://localhost:3000"
+            : "https://nokta-api.onrender.com"
     );
 
     public static final String API_KEY = System.getProperty(

@@ -1,0 +1,32 @@
+/* Progress bar gradient fix */
+.progress-bar {
+    -fx-background-color: #6c63ff;
+    -fx-background-radius: 4;
+}
+.progress-bar > .bar {
+    -fx-background-color: #6c63ff;
+    -fx-background-radius: 4;
+}
+.progress-bar > .track {
+    -fx-background-color: #252540;
+    -fx-background-radius: 4;
+}
+
+/* Scroll bar */
+.scroll-bar:vertical { -fx-background-color: #13131e; -fx-pref-width: 6px; }
+.scroll-bar:vertical .thumb { -fx-background-color: #2a2a50; -fx-background-radius: 3px; }
+.scroll-bar:vertical .track { -fx-background-color: transparent; }
+.scroll-bar:vertical .increment-button,
+.scroll-bar:vertical .decrement-button { -fx-background-color: transparent; -fx-padding: 0; }
+
+/* ComboBox */
+.combo-box .list-cell { -fx-background-color: #252540; -fx-text-fill: #ffffff; }
+.combo-box-popup .list-view { -fx-background-color: #252540; -fx-border-color: #3a3a60; }
+.combo-box-popup .list-view .list-cell:hover { -fx-background-color: #3a3a70; }
+
+/* TextArea */
+.text-area { -fx-background-color: #252540; }
+.text-area .content { -fx-background-color: #252540; }
+
+/* Separator */
+.separator .line { -fx-border-color: #1e1e30; }

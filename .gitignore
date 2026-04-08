@@ -1,0 +1,23 @@
+# Build çıktıları
+**/build/
+**/.gradle/
+**/out/
+
+# Node
+**/node_modules/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Crash dump
+*.hprof
+
+# Hassas bilgiler
+*.env
+local.properties

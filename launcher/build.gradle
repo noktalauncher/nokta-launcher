@@ -1,0 +1,150 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+group = 'com.nokta'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+}
+
+javafx {
+    version = "21"
+    modules = [
+        'javafx.controls',
+        'javafx.fxml',
+        'javafx.web',
+        'javafx.media',
+        'javafx.swing'
+    ]
+}
+
+dependencies {
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'org.sejda.imageio:webp-imageio:0.1.6'
+    implementation 'org.kordamp.ikonli:ikonli-javafx:12.3.1'
+    implementation 'org.kordamp.ikonli:ikonli-fontawesome5-pack:12.3.1'
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+}
+
+application {
+    mainClass = 'com.nokta.launcher.NoktaLauncher'
+    applicationDefaultJvmArgs = [
+        '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.io=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.util=ALL-UNNAMED'
+    ]
+}
+
+// Evrensel FAT JAR (tüm sistemlerde çalışır)
+jar {
+    archiveFileName = 'nokta-launcher.jar'
+    manifest {
+        attributes(
+            'Main-Class': 'com.nokta.launcher.NoktaLauncher',
+            'Implementation-Title': 'Nokta Launcher',
+            'Implementation-Version': version
+        )
+    }
+    from {
+        configurations.runtimeClasspath.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Dağıtım ZIP'i oluştur
+distributions {
+    main {
+        distributionBaseName = 'nokta-launcher'
+        contents {
+            from('src/main/resources') {
+                into 'resources'
+            }
+        }
+    }
+}
+
+compileJava.options.encoding = 'UTF-8'
+
+// ─── jpackage — JRE bundled installer ────────────────────────────────────────
+// Kullanım: ./gradlew jpackageLinux | jpackageWindows | jpackageMac
+def jpackageExe = "${System.getProperty('java.home')}/bin/jpackage"
+
+task jpackageLinux(type: Exec, dependsOn: jar) {
+    group = 'distribution'
+    description = 'Linux .deb installer (JRE bundled)'
+    commandLine jpackageExe,
+        '--input',          'build/libs',
+        '--main-jar',       'nokta-launcher.jar',
+        '--main-class',     'com.nokta.launcher.NoktaLauncher',
+        '--name',           'NoktaLauncher',
+        '--app-version',    version,
+        '--vendor',         'Nokta',
+        '--description',    'Nokta Minecraft Launcher',
+        '--dest',           'build/dist',
+        '--type',           'deb',
+        '--linux-shortcut',
+        '--linux-menu-group', 'Games',
+        '--icon',           'packaging/icons/nokta.png',
+        '--java-options',   '--add-opens javafx.graphics/com.sun.javafx.application=ALL-UNNAMED',
+        '--java-options',   '-Dfile.encoding=UTF-8',
+        '--java-options',   '--add-opens java.base/java.lang=ALL-UNNAMED',
+        '--java-options',   '--add-opens java.base/java.io=ALL-UNNAMED',
+        '--java-options',   '--add-opens java.base/java.util=ALL-UNNAMED'
+}
+
+task jpackageWindows(type: Exec, dependsOn: jar) {
+    group = 'distribution'
+    description = 'Windows .exe installer (JRE bundled)'
+    commandLine jpackageExe,
+        '--input',          'build/libs',
+        '--main-jar',       'nokta-launcher.jar',
+        '--main-class',     'com.nokta.launcher.NoktaLauncher',
+        '--name',           'NoktaLauncher',
+        '--app-version',    version,
+        '--vendor',         'Nokta',
+        '--dest',           'build/dist',
+        '--type',           'exe',
+        '--win-shortcut',
+        '--win-menu',
+        '--win-menu-group', 'Nokta',
+        '--icon',           'packaging/icons/nokta.ico',
+        '--win-dir-chooser',
+        '--java-options',   '--add-opens javafx.graphics/com.sun.javafx.application=ALL-UNNAMED',
+        '--java-options',   '-Dfile.encoding=UTF-8',
+        '--java-options',   '--add-opens java.base/java.lang=ALL-UNNAMED',
+        '--java-options',   '--add-opens java.base/java.io=ALL-UNNAMED',
+        '--java-options',   '--add-opens java.base/java.util=ALL-UNNAMED'
+}
+
+task jpackageMac(type: Exec, dependsOn: jar) {
+    group = 'distribution'
+    description = 'macOS .dmg installer (JRE bundled)'
+    commandLine jpackageExe,
+        '--input',          'build/libs',
+        '--main-jar',       'nokta-launcher.jar',
+        '--main-class',     'com.nokta.launcher.NoktaLauncher',
+        '--name',           'NoktaLauncher',
+        '--app-version',    version,
+        '--vendor',         'Nokta',
+        '--dest',           'build/dist',
+        '--type',           'dmg',
+        '--icon',           'packaging/icons/nokta-512.png',
+        '--mac-package-name', 'NoktaLauncher',
+        '--java-options',   '--add-opens javafx.graphics/com.sun.javafx.application=ALL-UNNAMED',
+        '--java-options',   '-Dfile.encoding=UTF-8',
+        '--java-options',   '--add-opens java.base/java.lang=ALL-UNNAMED',
+        '--java-options',   '--add-opens java.base/java.io=ALL-UNNAMED',
+        '--java-options',   '--add-opens java.base/java.util=ALL-UNNAMED'
+}

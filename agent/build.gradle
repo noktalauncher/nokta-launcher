@@ -1,0 +1,40 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group = 'com.nokta'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories { mavenCentral() }
+
+dependencies {
+    implementation 'org.ow2.asm:asm:9.6'
+    implementation 'org.ow2.asm:asm-commons:9.6'
+    implementation 'org.ow2.asm:asm-tree:9.6'
+    implementation 'com.google.code.gson:gson:2.10.1'
+}
+
+shadowJar {
+    archiveFileName = 'nokta-agent.jar'
+    // ASM'i farkli pakete tasi — Fabric/Mixin ile cakisma olmaz
+    relocate 'org.objectweb.asm', 'com.nokta.shadow.asm'
+    relocate 'com.google.gson',   'com.nokta.shadow.gson'
+    manifest {
+        attributes(
+            'Premain-Class'          : 'com.nokta.agent.NoftaAgent',
+            'Agent-Class'            : 'com.nokta.agent.NoftaAgent',
+            'Can-Retransform-Classes': 'true',
+            'Can-Redefine-Classes'   : 'true'
+        )
+    }
+}
+
+// Varsayilan jar gorevi yerine shadowJar kullan
+jar.enabled = false
+build.dependsOn shadowJar

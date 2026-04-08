@@ -174,34 +174,38 @@ public class PlayScreen extends VBox {
 
         progressCard.getChildren().addAll(statusLabel, progressBar, progressLabel);
 
-        // Log alanı — 2 sekme: Kurulum/MC Logu + Chat Logu
+        // Log alanı — yan yana: sol=MC logu, sağ=Chat logu
         logBox = new VBox(3);
         logBox.setPadding(new Insets(6));
         logBox.setStyle("-fx-background-color:#00000044;-fx-background-radius:8;");
 
         chatLogBox = new VBox(3);
         chatLogBox.setPadding(new Insets(6));
-        chatLogBox.setStyle("-fx-background-color:#00000044;-fx-background-radius:8;");
+        chatLogBox.setStyle("-fx-background-color:#00000033;-fx-background-radius:8;");
 
         javafx.scene.control.ScrollPane logScroll = new javafx.scene.control.ScrollPane(logBox);
         logScroll.setFitToWidth(true);
-        logScroll.setPrefHeight(180);
-        logScroll.setStyle("-fx-background:#00000000;-fx-background-color:transparent;");
+        logScroll.setPrefHeight(200);
+        HBox.setHgrow(logScroll, Priority.ALWAYS);
+        logScroll.setStyle("-fx-background:#00000000;-fx-background-color:transparent;-fx-border-color:#1a1a2888;-fx-border-radius:8;-fx-border-width:1;");
 
         javafx.scene.control.ScrollPane chatScroll = new javafx.scene.control.ScrollPane(chatLogBox);
         chatScroll.setFitToWidth(true);
-        chatScroll.setPrefHeight(180);
-        chatScroll.setStyle("-fx-background:#00000000;-fx-background-color:transparent;");
+        chatScroll.setPrefHeight(200);
+        chatScroll.setPrefWidth(320);
+        chatScroll.setStyle("-fx-background:#00000000;-fx-background-color:transparent;-fx-border-color:#6c63ff44;-fx-border-radius:8;-fx-border-width:1;");
 
-        javafx.scene.control.Tab logTab = new javafx.scene.control.Tab("📋 Kurulum Logu", logScroll);
-        logTab.setClosable(false);
-        javafx.scene.control.Tab chatTab = new javafx.scene.control.Tab("💬 Chat Logu", chatScroll);
-        chatTab.setClosable(false);
+        Label logTitle  = new Label("📋 Minecraft Logu");
+        logTitle.setStyle("-fx-text-fill:#555577;-fx-font-size:11px;");
+        Label chatTitle = new Label("💬 Chat Logu");
+        chatTitle.setStyle("-fx-text-fill:#6c63ff;-fx-font-size:11px;");
 
-        javafx.scene.control.TabPane logTabPane = new javafx.scene.control.TabPane(logTab, chatTab);
-        logTabPane.setStyle("-fx-background-color:#00000044;-fx-tab-min-height:30px;");
+        VBox logPane  = new VBox(4, logTitle,  logScroll);
+        VBox chatPane = new VBox(4, chatTitle, chatScroll);
+        HBox.setHgrow(logPane, Priority.ALWAYS);
+
+        HBox logTabPane = new HBox(12, logPane, chatPane);
         logTabPane.setVisible(true);
-        logTabPane.setPrefHeight(220);
 
         // Butonlar
         HBox btnRow = new HBox(12);
@@ -416,9 +420,10 @@ public class PlayScreen extends VBox {
                     java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
                 ticker.scheduleAtFixedRate(() -> {
                     long elapsed = System.currentTimeMillis() - sessionStart[0];
-                    long mins = (elapsed / 60000) % 60;
+                    long secs  = (elapsed / 1000) % 60;
+                    long mins  = (elapsed / 60000) % 60;
                     long hours = elapsed / 3600000;
-                    String t = hours > 0 ? hours + "s " + mins + "d" : mins + " dk";
+                    String t = String.format("%02d:%02d:%02d", hours, mins, secs);
                     Platform.runLater(() -> {
                         if (MainWindow.instance != null)
                             MainWindow.instance.updateSessionPlaytime(t);

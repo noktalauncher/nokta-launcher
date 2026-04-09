@@ -18,6 +18,10 @@ public class DiscordRPC {
     private static final Path   TOKEN_FILE    = Paths.get(
         System.getProperty("user.home"), ".nokta-launcher", "discord_token.json");
 
+    // ── Durum enum'ları ──────────────────────────────────────────────
+    public enum RpcState { LAUNCHER, PLAYING, ON_SERVER, SINGLEPLAYER, BROWSING_MODS }
+    private RpcState currentState = RpcState.LAUNCHER;
+
     private SocketChannel socket;
     private boolean connected  = false;
     private boolean authorized = false;
@@ -27,30 +31,51 @@ public class DiscordRPC {
     private String  currentChannelId = null;
     private String  myUserId = null;
 
-    // Speaking set — event ile doluyor
     private final Set<String> speakingUsers =
         Collections.synchronizedSet(new HashSet<>());
-
-    // Nonce -> response bekleyen thread
     private final ConcurrentHashMap<String, CompletableFuture<JsonObject>> pending =
         new ConcurrentHashMap<>();
 
     private Consumer<List<VoiceUser>> onVoiceUsersChanged;
-
     private final ScheduledExecutorService scheduler =
         Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "discord-scheduler");
             t.setDaemon(true); return t;
         });
 
-    private long startTime = System.currentTimeMillis() / 1000;
+    private long   startTime        = System.currentTimeMillis() / 1000;
+    private String currentMcVersion = "";
+    private String currentLoader    = "";
+    private String currentServerIp  = "";
 
     public void setOnVoiceUsersChanged(Consumer<List<VoiceUser>> cb) {
         this.onVoiceUsersChanged = cb;
     }
 
-    // ── Bağlantı ────────────────────────────────────────────────────
+    // ── Sürüm → Discord asset key ────────────────────────────────────
+    // Discord Developer Portal'a yüklenecek görsel isimleri:
+    //   nokta_logo   → N logosu (her zaman yüklü olmalı)
+    //   mc_1_21_4    → MC 1.21.4 ikonu
+    //   mc_1_20_1    → MC 1.20.1 ikonu
+    //   mc_default   → Bilinmeyen sürümler için yedek
+    // Listeye yeni sürüm eklemek için sadece buraya ekle.
+    private static final Set<String> KNOWN_MC_VERSIONS = Set.of(
+        "1.21.4", "1.21.3", "1.21.2", "1.21.1", "1.21",
+        "1.20.6", "1.20.4", "1.20.2", "1.20.1", "1.20",
+        "1.19.4", "1.19.3", "1.19.2", "1.19",
+        "1.18.2", "1.18.1", "1.18",
+        "1.17.1", "1.17",
+        "1.16.5", "1.16.4", "1.16.1", "1.16",
+        "1.12.2", "1.8.9"
+    );
 
+    private String getMcVersionIcon(String version) {
+        if (version == null || version.isBlank()) return "mc_default";
+        String key = "mc_" + version.replace(".", "_");
+        return KNOWN_MC_VERSIONS.contains(version) ? key : "mc_default";
+    }
+
+    // ── Bağlantı ────────────────────────────────────────────────────
     public void connect() {
         new Thread(() -> {
             for (int i = 0; i < 10; i++) {
@@ -58,21 +83,18 @@ public class DiscordRPC {
                     tryConnect(i);
                     System.out.println("✅ Discord IPC bağlandı!");
                     sendHandshake();
-                    connected = true; // reader için
-                    startReader(); // okuyucu thread başlat
-
+                    connected = true;
+                    startReader();
                     if (loadSavedToken()) {
-                        // Önce access token dene
                         if (authenticate(accessToken)) {
                             System.out.println("✅ Otomatik Discord girişi! (ID: " + myUserId + ")");
-                            connected = true; authorized = true;
+                            authorized = true;
                             setInLauncher(); subscribeAll(); startPolling(); return;
                         }
-                        // Access token süresi dolmuş - refresh token ile yenile
                         System.out.println("🔄 Token yenileniyor...");
                         if (refreshToken != null && refreshAccessToken()) {
                             System.out.println("✅ Token yenilendi! (ID: " + myUserId + ")");
-                            connected = true; authorized = true;
+                            authorized = true;
                             setInLauncher(); subscribeAll(); startPolling(); return;
                         }
                         System.out.println("⚠ Refresh başarısız, yeniden giriş gerekiyor.");
@@ -87,8 +109,7 @@ public class DiscordRPC {
         }, "discord-connect").start();
     }
 
-    // ── Okuyucu thread — tüm mesajları işler ────────────────────────
-
+    // ── Okuyucu ─────────────────────────────────────────────────────
     private void startReader() {
         new Thread(() -> {
             while (socket != null && socket.isOpen()) {
@@ -102,7 +123,6 @@ public class DiscordRPC {
                         connected = false;
                         try { if (socket != null) socket.close(); } catch (Exception ignored) {}
                         socket = null;
-                        // 3 saniye bekle yeniden bağlan
                         new Thread(() -> {
                             try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
                             connect();
@@ -117,26 +137,17 @@ public class DiscordRPC {
     private void dispatch(String raw) {
         try {
             JsonObject obj = JsonParser.parseString(raw).getAsJsonObject();
-
-            // Handshake cevabı (nonce yok)
             CompletableFuture<JsonObject> hsFut = pending.get("__handshake__");
-            if (hsFut != null && !hsFut.isDone()) {
-                hsFut.complete(obj);
-            }
-
-            // Nonce varsa bekleyen komutu tamamla
+            if (hsFut != null && !hsFut.isDone()) hsFut.complete(obj);
             if (obj.has("nonce") && !obj.get("nonce").isJsonNull()) {
                 String nonce = obj.get("nonce").getAsString();
                 CompletableFuture<JsonObject> fut = pending.remove(nonce);
                 if (fut != null) { fut.complete(obj); return; }
             }
-
-            // Event işle
             if (!obj.has("evt") || obj.get("evt").isJsonNull()) return;
             String evt = obj.get("evt").getAsString();
             if (!obj.has("data") || obj.get("data").isJsonNull()) return;
             JsonObject data = obj.getAsJsonObject("data");
-
             switch (evt) {
                 case "SPEAKING_START" -> {
                     if (data.has("user_id")) {
@@ -158,23 +169,19 @@ public class DiscordRPC {
         } catch (Exception ignored) {}
     }
 
-    // ── Komut gönder + cevap bekle ───────────────────────────────────
-
+    // ── Komut ────────────────────────────────────────────────────────
     private JsonObject sendCmd(String cmd, JsonObject args) throws Exception {
         return sendCmd(cmd, args, 5);
     }
-
     private JsonObject sendCmd(String cmd, JsonObject args, int timeoutSec) throws Exception {
         String nonce = UUID.randomUUID().toString();
         CompletableFuture<JsonObject> fut = new CompletableFuture<>();
         pending.put(nonce, fut);
-
         JsonObject p = new JsonObject();
         p.addProperty("cmd", cmd);
         p.addProperty("nonce", nonce);
         p.add("args", args != null ? args : new JsonObject());
         sendRaw(1, p.toString());
-
         try {
             return fut.get(timeoutSec, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
@@ -184,7 +191,6 @@ public class DiscordRPC {
     }
 
     // ── Auth ─────────────────────────────────────────────────────────
-
     private boolean authenticate(String token) {
         try {
             JsonObject args = new JsonObject();
@@ -238,17 +244,13 @@ public class DiscordRPC {
             JsonArray scopes = new JsonArray();
             scopes.add("rpc"); scopes.add("rpc.voice.read");
             args.add("scopes", scopes);
-
-            System.out.println("⏳ Discord yetkilendirme bekleniyor (Discord uygulamasını kontrol et)...");
+            System.out.println("⏳ Discord yetkilendirme bekleniyor...");
             JsonObject resp;
             try { resp = sendCmd("AUTHORIZE", args, 120); }
             catch (Exception e) { System.out.println("⚠ Yetkilendirme iptal edildi."); fallback(); return; }
-            if (resp == null || !resp.has("data") || resp.get("data").isJsonNull()) {
-                fallback(); return;
-            }
+            if (resp == null || !resp.has("data") || resp.get("data").isJsonNull()) { fallback(); return; }
             JsonObject data = resp.getAsJsonObject("data");
             if (!data.has("code") || data.get("code").isJsonNull()) { fallback(); return; }
-
             String code = data.get("code").getAsString();
             URL url = new URL("https://discord.com/api/oauth2/token");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -262,24 +264,19 @@ public class DiscordRPC {
                 + "&redirect_uri=" + URLEncoder.encode("http://localhost", StandardCharsets.UTF_8);
             conn.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
             if (conn.getResponseCode() != 200) { fallback(); return; }
-
             JsonObject tokenJson = JsonParser.parseString(
                 new String(conn.getInputStream().readAllBytes())).getAsJsonObject();
             if (!tokenJson.has("access_token")) { fallback(); return; }
-
             accessToken  = tokenJson.get("access_token").getAsString();
             refreshToken = tokenJson.has("refresh_token") ?
                 tokenJson.get("refresh_token").getAsString() : null;
-
             if (authenticate(accessToken)) {
                 saveToken(accessToken, refreshToken);
                 authorized = true;
                 System.out.println("🎉 Discord yetki tamam! ID: " + myUserId);
             }
             connected = true;
-            setInLauncher();
-            subscribeAll();
-            startPolling();
+            setInLauncher(); subscribeAll(); startPolling();
         } catch (Exception e) {
             System.out.println("⚠ Auth hatası: " + e.getMessage());
             fallback();
@@ -287,16 +284,12 @@ public class DiscordRPC {
     }
 
     // ── Subscribe ────────────────────────────────────────────────────
-
     private void subscribeAll() {
         new Thread(() -> {
             try {
                 Thread.sleep(500);
-                // Kanal değişimi
                 subscribe("VOICE_CHANNEL_SELECT", null);
                 System.out.println("✅ VOICE_CHANNEL_SELECT subscribe edildi");
-
-                // İlk kanalı al
                 fetchVoiceChannel();
             } catch (Exception e) {
                 System.out.println("⚠ Subscribe hatası: " + e.getMessage());
@@ -332,30 +325,25 @@ public class DiscordRPC {
     }
 
     // ── Ses kanalı ───────────────────────────────────────────────────
-
     public void fetchVoiceChannel() {
         if (!connected || socket == null || !socket.isOpen()) return;
         try {
             JsonObject resp = sendCmd("GET_SELECTED_VOICE_CHANNEL", null);
             if (resp == null) return;
-
             if (!resp.has("data") || resp.get("data").isJsonNull()) {
                 currentChannel = null; currentChannelId = null;
                 speakingUsers.clear();
                 if (onVoiceUsersChanged != null) onVoiceUsersChanged.accept(new ArrayList<>());
+                return;
             }
-
             JsonObject data = resp.getAsJsonObject("data");
             currentChannel = data.has("name") ? data.get("name").getAsString() : "Ses Kanalı";
             String channelId = data.has("id") ? data.get("id").getAsString() : null;
-
-            // Yeni kanala subscribe
             if (channelId != null && !channelId.equals(currentChannelId)) {
                 currentChannelId = channelId;
                 speakingUsers.clear();
                 subscribeToChannel(channelId);
             }
-
             List<VoiceUser> users = new ArrayList<>();
             if (data.has("voice_states")) {
                 for (JsonElement el : data.getAsJsonArray("voice_states")) {
@@ -364,25 +352,18 @@ public class DiscordRPC {
                     JsonObject user = vs.getAsJsonObject("user");
                     JsonObject vs2  = vs.has("voice_state")
                         ? vs.getAsJsonObject("voice_state") : new JsonObject();
-
-                    String  uid  = user.get("id").getAsString();
-                    boolean muted = vs2.has("self_mute") && vs2.get("self_mute").getAsBoolean();
-                    boolean deaf  = vs2.has("self_deaf") && vs2.get("self_deaf").getAsBoolean();
-                    boolean speaking = speakingUsers.contains(uid);
-
+                    String  uid     = user.get("id").getAsString();
+                    boolean muted   = vs2.has("self_mute") && vs2.get("self_mute").getAsBoolean();
+                    boolean deaf    = vs2.has("self_deaf") && vs2.get("self_deaf").getAsBoolean();
                     users.add(new VoiceUser(uid,
                         user.get("username").getAsString(),
                         user.has("avatar") && !user.get("avatar").isJsonNull()
                             ? user.get("avatar").getAsString() : null,
-                        muted, deaf, speaking));
+                        muted, deaf, speakingUsers.contains(uid)));
                 }
             }
-
             if (onVoiceUsersChanged != null) onVoiceUsersChanged.accept(users);
-
-        } catch (Exception e) {
-            // Sessiz geç - bağlantı kesilmişse reader thread halleder
-        }
+        } catch (Exception ignored) {}
     }
 
     private void pushVoiceUpdate() {
@@ -399,14 +380,14 @@ public class DiscordRPC {
                     JsonObject user = vs.getAsJsonObject("user");
                     JsonObject vs2  = vs.has("voice_state")
                         ? vs.getAsJsonObject("voice_state") : new JsonObject();
-                    String  uid  = user.get("id").getAsString();
-                    boolean muted = vs2.has("self_mute") && vs2.get("self_mute").getAsBoolean();
-                    boolean deaf  = vs2.has("self_deaf") && vs2.get("self_deaf").getAsBoolean();
+                    String uid = user.get("id").getAsString();
                     users.add(new VoiceUser(uid,
                         user.get("username").getAsString(),
                         user.has("avatar") && !user.get("avatar").isJsonNull()
                             ? user.get("avatar").getAsString() : null,
-                        muted, deaf, speakingUsers.contains(uid)));
+                        vs2.has("self_mute") && vs2.get("self_mute").getAsBoolean(),
+                        vs2.has("self_deaf") && vs2.get("self_deaf").getAsBoolean(),
+                        speakingUsers.contains(uid)));
                 }
             }
             if (onVoiceUsersChanged != null) onVoiceUsersChanged.accept(users);
@@ -414,7 +395,6 @@ public class DiscordRPC {
     }
 
     // ── Polling ──────────────────────────────────────────────────────
-
     private void startPolling() {
         scheduler.scheduleAtFixedRate(this::fetchVoiceChannel, 3, 5, TimeUnit.SECONDS);
     }
@@ -424,75 +404,134 @@ public class DiscordRPC {
         setInLauncher(); startPolling();
     }
 
-    // ── RPC ──────────────────────────────────────────────────────────
-
-    private String currentServerIp = "";
-    private String currentMcVersion = "";
-    public void setPresence(String details, String state) {
-        setPresenceWithServer(details, state, currentServerIp);
-    }
-    public void setPresenceWithServer(String details, String state, String serverIp) {
+    // ── RPC — Temel gönderici ────────────────────────────────────────
+    /**
+     * Tüm SET_ACTIVITY çağrıları buradan geçer.
+     *
+     * PP kuralları:
+     *   LAUNCHER  → large = nokta_logo                    | small = YOK
+     *   MC açık   → large = mc_X_Y_Z (sürüm ikonu)       | small = nokta_logo
+     */
+    private void sendActivity(String details, String state) {
         if (!connected) return;
-        currentServerIp = serverIp != null ? serverIp : "";
         scheduler.execute(() -> {
             try {
                 JsonObject activity = new JsonObject();
                 activity.addProperty("details", details);
                 activity.addProperty("state", state);
+
                 JsonObject ts = new JsonObject();
                 ts.addProperty("start", startTime);
                 activity.add("timestamps", ts);
+
                 JsonObject assets = new JsonObject();
-                // MC açıkken Minecraft'ın kendi ikonunu kullan
-                String largeImg = currentMcVersion != null && !currentMcVersion.isEmpty()
-                    ? "minecraft" : "nokta_logo";
-                String largeText = currentMcVersion != null && !currentMcVersion.isEmpty()
-                    ? "Minecraft " + currentMcVersion : "Nokta Launcher";
-                assets.addProperty("large_image", largeImg);
-                assets.addProperty("large_text", largeText);
-                assets.addProperty("small_image", "nokta_logo");
-                assets.addProperty("small_text", "Nokta Client");
+
+                if (currentState == RpcState.LAUNCHER) {
+                    // Launcher: sadece N logosu büyük, küçük resim yok
+                    assets.addProperty("large_image", "nokta_logo");
+                    assets.addProperty("large_text",  "Nokta Launcher");
+                } else {
+                    // MC açık: sürüm ikonu büyük, N logosu küçük
+                    assets.addProperty("large_image", getMcVersionIcon(currentMcVersion));
+                    assets.addProperty("large_text",
+                        "Minecraft " + (currentMcVersion.isBlank() ? "" : currentMcVersion));
+                    assets.addProperty("small_image", "nokta_logo");
+                    assets.addProperty("small_text",  "Nokta Client");
+                }
+
                 activity.add("assets", assets);
-                // Sunucuya katıl butonu
-                if (!currentServerIp.isEmpty() && !currentServerIp.equals("Singleplayer")) {
+
+                // Sunucuya katıl butonu (sadece multiplayer'da)
+                if (currentState == RpcState.ON_SERVER && !currentServerIp.isEmpty()) {
                     JsonArray buttons = new JsonArray();
                     JsonObject joinBtn = new JsonObject();
                     joinBtn.addProperty("label", "Sunucuya Katıl");
+                    joinBtn.addProperty("url", "https://nokta-api.onrender.com");
                     buttons.add(joinBtn);
                     activity.add("buttons", buttons);
                 }
+
                 JsonObject args = new JsonObject();
                 args.add("activity", activity);
                 args.addProperty("pid", ProcessHandle.current().pid());
                 sendCmd("SET_ACTIVITY", args);
+
             } catch (Exception e) { connected = false; }
         });
     }
 
-    public void setPlayingMinecraft(String v) {
-        startTime = System.currentTimeMillis() / 1000;
-        setPresence("Nokta Client", "Minecraft " + v + " oynuyor");
+    // ── Halka açık RPC metodları ─────────────────────────────────────
+
+    /** Launcher açık, MC kapalı */
+    public void setInLauncher() {
+        currentState     = RpcState.LAUNCHER;
+        currentMcVersion = "";
+        currentLoader    = "";
+        currentServerIp  = "";
+        startTime        = System.currentTimeMillis() / 1000;
+        sendActivity("Nokta Launcher", "Oyun seçiyor...");
     }
+
+    /** MC başlatıldı */
     public void setPlayingMinecraft(String mcVersion, String loader) {
+        currentState     = RpcState.PLAYING;
         currentMcVersion = mcVersion != null ? mcVersion : "";
-        startTime = System.currentTimeMillis() / 1000;
-        String loaderStr = (loader != null && !loader.equals("Vanilla")) ? loader : "Vanilla";
-        setPresence("Nokta Client", "Minecraft " + mcVersion + " · " + loaderStr);
+        currentLoader    = loader    != null ? loader    : "Vanilla";
+        currentServerIp  = "";
+        startTime        = System.currentTimeMillis() / 1000;
+        String loaderStr = currentLoader.equals("Vanilla") ? "Vanilla" : currentLoader;
+        sendActivity("Nokta Client", "Minecraft " + currentMcVersion + " · " + loaderStr);
     }
-    public void setInLauncher()   { currentMcVersion = ""; setPresence("Nokta Launcher", "Oyun seçiyor..."); }
+
+    /** Eski imza — geriye dönük uyumluluk */
+    public void setPlayingMinecraft(String mcVersion) {
+        setPlayingMinecraft(mcVersion, "Vanilla");
+    }
+
+    /** Çok oyunculu sunucuya bağlandı */
     public void setPlayingOnServer(String serverIp, String mcVersion, String loader) {
-        String loaderStr = (loader != null && !loader.equals("Vanilla")) ? loader : "Vanilla";
-        setPresenceWithServer("Minecraft " + mcVersion + " · " + loaderStr,
-                    serverIp + " sunucusunda oynuyor", serverIp);
+        currentState     = RpcState.ON_SERVER;
+        currentMcVersion = mcVersion != null ? mcVersion : "";
+        currentLoader    = loader    != null ? loader    : "Vanilla";
+        currentServerIp  = serverIp  != null ? serverIp  : "";
+        String loaderStr = currentLoader.equals("Vanilla") ? "Vanilla" : currentLoader;
+        sendActivity(
+            "Minecraft " + currentMcVersion + " · " + loaderStr,
+            currentServerIp + " sunucusunda oynuyor"
+        );
     }
+
+    /** Tek oyunculu */
     public void setPlayingSingleplayer(String mcVersion, String loader) {
-        String loaderStr = (loader != null && !loader.equals("Vanilla")) ? loader : "Vanilla";
-        setPresence("Minecraft " + mcVersion + " · " + loaderStr, "Tek oyunculu oynuyor");
+        currentState     = RpcState.SINGLEPLAYER;
+        currentMcVersion = mcVersion != null ? mcVersion : "";
+        currentLoader    = loader    != null ? loader    : "Vanilla";
+        currentServerIp  = "Singleplayer";
+        String loaderStr = currentLoader.equals("Vanilla") ? "Vanilla" : currentLoader;
+        sendActivity(
+            "Minecraft " + currentMcVersion + " · " + loaderStr,
+            "Tek oyunculu oynuyor"
+        );
     }
-    public void setBrowsingMods() { setPresence("Mod arıyor", "Modrinth / CurseForge"); }
+
+    /** Mod ekranı */
+    public void setBrowsingMods() {
+        currentState = RpcState.BROWSING_MODS;
+        sendActivity("Mod arıyor", "Modrinth / CurseForge");
+    }
+
+    // ── Getterlar ────────────────────────────────────────────────────
+    public boolean isConnected()      { return connected; }
+    public boolean isAuthorized()     { return authorized; }
+    public String getCurrentChannel() { return currentChannel; }
+    public RpcState getCurrentState() { return currentState; }
+
+    public void disconnect() {
+        connected = false; scheduler.shutdownNow();
+        try { if (socket != null) socket.close(); } catch (Exception ignored) {}
+    }
 
     // ── Token ────────────────────────────────────────────────────────
-
     private boolean loadSavedToken() {
         try {
             if (!Files.exists(TOKEN_FILE)) return false;
@@ -513,24 +552,16 @@ public class DiscordRPC {
     }
 
     // ── Socket ───────────────────────────────────────────────────────
-
-    public void disconnect() {
-        connected = false; scheduler.shutdownNow();
-        try { if (socket != null) socket.close(); } catch (Exception ignored) {}
-    }
-
-    public boolean isConnected()      { return connected; }
-    public boolean isAuthorized()     { return authorized; }
-    public String getCurrentChannel() { return currentChannel; }
-
     private void tryConnect(int pipe) throws Exception {
         String os = System.getProperty("os.name").toLowerCase();
         if (os.contains("win")) {
             socket = SocketChannel.open();
             socket.connect(new InetSocketAddress("127.0.0.1", 6463 + pipe));
         } else {
-            String[] paths = {System.getenv("XDG_RUNTIME_DIR"), "/tmp", "/var/tmp",
-                System.getProperty("user.home") + "/.config/discord"};
+            String[] paths = {
+                System.getenv("XDG_RUNTIME_DIR"), "/tmp", "/var/tmp",
+                System.getProperty("user.home") + "/.config/discord"
+            };
             for (String dir : paths) {
                 if (dir == null) continue;
                 File sock = new File(dir, "discord-ipc-" + pipe);
@@ -547,7 +578,6 @@ public class DiscordRPC {
         JsonObject p = new JsonObject();
         p.addProperty("v", 1);
         p.addProperty("client_id", CLIENT_ID);
-        // Handshake cevabını reader thread okuyacak
         CompletableFuture<JsonObject> hsFut = new CompletableFuture<>();
         pending.put("__handshake__", hsFut);
         sendRaw(0, p.toString());
@@ -564,12 +594,9 @@ public class DiscordRPC {
     }
 
     private String readRaw(int ms) throws Exception {
-        // Blocking mode - sadece reader thread çağırır
-        socket.configureBlocking(true);
+        socket.configureBlocking(false);
         ByteBuffer h = ByteBuffer.allocate(8);
         h.order(ByteOrder.LITTLE_ENDIAN);
-        // SO_TIMEOUT benzeri - non-blocking ile poll
-        socket.configureBlocking(false);
         long deadline = System.currentTimeMillis() + ms;
         while (h.hasRemaining()) {
             if (System.currentTimeMillis() > deadline) return null;
@@ -591,6 +618,7 @@ public class DiscordRPC {
         return new String(data.array(), StandardCharsets.UTF_8);
     }
 
+    // ── VoiceUser ────────────────────────────────────────────────────
     public static class VoiceUser {
         public final String id, username, avatarHash;
         public final boolean muted, deafened, speaking;

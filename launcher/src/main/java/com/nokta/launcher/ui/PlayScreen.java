@@ -2,9 +2,6 @@ package com.nokta.launcher.ui;
 
 import com.nokta.launcher.core.*;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicReference;
 import com.nokta.launcher.NoktaLauncher;
 import com.nokta.launcher.core.AssetDownloader;
 import com.nokta.launcher.utils.PathManager;
@@ -16,13 +13,14 @@ import java.io.*;
 import java.util.List;
 
 public class PlayScreen extends VBox {
-    private static final java.nio.file.Path PREFS_FILE = PathManager.getGameDir().resolve("play_prefs.json");
+    private static final java.nio.file.Path PREFS_FILE =
+        PathManager.getGameDir().resolve("play_prefs.json");
 
     private final VersionManager  versionManager;
     private final GameLauncher    gameLauncher;
     private final NativesManager  nativesManager;
-    private final com.nokta.launcher.core.AuthManager    authManager;
-    private final com.nokta.launcher.discord.DiscordRPC  discordRPC;
+    private final com.nokta.launcher.core.AuthManager   authManager;
+    private final com.nokta.launcher.discord.DiscordRPC discordRPC;
     private static volatile Process minecraftProcess = null;
 
     static {
@@ -46,9 +44,8 @@ public class PlayScreen extends VBox {
     private Button           actionBtn;
     private Button           installBtn;
     private VBox             logBox;
-    private VBox             chatLogBox;
-    private final java.util.List<String> mcLogLines  = new java.util.ArrayList<>();
-    private final java.util.List<String> chatLogLines = new java.util.ArrayList<>();
+    private String           lastFps = "—";
+    private final java.util.List<String> mcLogLines = new java.util.ArrayList<>();
     private TextField        userField;
 
     public PlayScreen() {
@@ -72,14 +69,14 @@ public class PlayScreen extends VBox {
         Label sub = new Label("Sürüm ve mod yükleyicisini seç, ardından başlat.");
         sub.setStyle("-fx-text-fill:#666688;-fx-font-size:13px;");
 
-        // Ana ayarlar kartı
+        // ── Ana ayarlar kartı ────────────────────────────────────────
         VBox mainCard = new VBox(20);
         mainCard.setPadding(new Insets(28, 32, 28, 32));
         mainCard.setStyle(
             "-fx-background-color:#00000055;-fx-background-radius:16;" +
             "-fx-border-color:#1e1e30;-fx-border-radius:16;-fx-border-width:1;");
 
-        // Sürüm & loader seçimi
+        // Sürüm & loader
         HBox versionRow = new HBox(16);
         versionRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -152,7 +149,7 @@ public class PlayScreen extends VBox {
 
         mainCard.getChildren().addAll(versionRow, ramBox, userBox);
 
-        // İlerleme kartı
+        // ── İlerleme kartı ───────────────────────────────────────────
         VBox progressCard = new VBox(10);
         progressCard.setPadding(new Insets(20, 24, 20, 24));
         progressCard.setStyle(
@@ -174,40 +171,44 @@ public class PlayScreen extends VBox {
 
         progressCard.getChildren().addAll(statusLabel, progressBar, progressLabel);
 
-        // Log alanı — yan yana: sol=MC logu, sağ=Chat logu
+        // ── Log alanı — başlık + klasör butonları ───────────────────
         logBox = new VBox(3);
         logBox.setPadding(new Insets(6));
         logBox.setStyle("-fx-background-color:#00000044;-fx-background-radius:8;");
 
-        chatLogBox = new VBox(3);
-        chatLogBox.setPadding(new Insets(6));
-        chatLogBox.setStyle("-fx-background-color:#00000033;-fx-background-radius:8;");
-
-        javafx.scene.control.ScrollPane logScroll = new javafx.scene.control.ScrollPane(logBox);
+        ScrollPane logScroll = new ScrollPane(logBox);
         logScroll.setFitToWidth(true);
         logScroll.setPrefHeight(200);
-        HBox.setHgrow(logScroll, Priority.ALWAYS);
-        logScroll.setStyle("-fx-background:#00000000;-fx-background-color:transparent;-fx-border-color:#1a1a2888;-fx-border-radius:8;-fx-border-width:1;");
+        logScroll.setStyle(
+            "-fx-background:#00000000;-fx-background-color:transparent;" +
+            "-fx-border-color:#1a1a2888;-fx-border-radius:8;-fx-border-width:1;");
 
-        javafx.scene.control.ScrollPane chatScroll = new javafx.scene.control.ScrollPane(chatLogBox);
-        chatScroll.setFitToWidth(true);
-        chatScroll.setPrefHeight(200);
-        chatScroll.setPrefWidth(320);
-        chatScroll.setStyle("-fx-background:#00000000;-fx-background-color:transparent;-fx-border-color:#6c63ff44;-fx-border-radius:8;-fx-border-width:1;");
+        // Klasör aç butonları
+        Button modsBtn = folderButton("📂  Mods",  "#6c63ff44", "#9d98ff",
+            PathManager.getModsDir(versionCombo.getValue() != null
+                ? versionCombo.getValue() : ""));
+        Button logsBtn = folderButton("📋  Logs",  "#ffffff11", "#8888aa",
+            PathManager.getGameDir().resolve("logs"));
 
-        Label logTitle  = new Label("📋 Minecraft Logu");
+        // versionCombo değişince modsBtn path'i güncelle
+        versionCombo.setOnAction(e -> {
+            savePrefs();
+            modsBtn.setOnAction(ev ->
+                openFolder(PathManager.getModsDir(versionCombo.getValue() != null
+                    ? versionCombo.getValue() : "")));
+        });
+
+        HBox logHeader = new HBox(10);
+        logHeader.setAlignment(Pos.CENTER_LEFT);
+        Label logTitle = new Label("📋 Minecraft Logu");
         logTitle.setStyle("-fx-text-fill:#555577;-fx-font-size:11px;");
-        Label chatTitle = new Label("💬 Chat Logu");
-        chatTitle.setStyle("-fx-text-fill:#6c63ff;-fx-font-size:11px;");
+        Region logSpacer = new Region();
+        HBox.setHgrow(logSpacer, Priority.ALWAYS);
+        logHeader.getChildren().addAll(logTitle, logSpacer, modsBtn, logsBtn);
 
-        VBox logPane  = new VBox(4, logTitle,  logScroll);
-        VBox chatPane = new VBox(4, chatTitle, chatScroll);
-        HBox.setHgrow(logPane, Priority.ALWAYS);
+        VBox logPane = new VBox(6, logHeader, logScroll);
 
-        HBox logTabPane = new HBox(12, logPane, chatPane);
-        logTabPane.setVisible(true);
-
-        // Butonlar
+        // ── Alt buton satırı ─────────────────────────────────────────
         HBox btnRow = new HBox(12);
         btnRow.setAlignment(Pos.CENTER_RIGHT);
 
@@ -220,26 +221,62 @@ public class PlayScreen extends VBox {
         actionBtn = new Button("▶  OYNA");
         actionBtn.setPrefWidth(160);
         actionBtn.setPrefHeight(48);
-        actionBtn.setStyle(
-            "-fx-background-color:linear-gradient(to right,#6c63ff,#3b82f6);" +
-            "-fx-text-fill:white;-fx-font-size:15px;-fx-font-weight:bold;" +
-            "-fx-background-radius:12;-fx-cursor:hand;" +
-            "-fx-effect:dropshadow(gaussian,#6c63ff88,12,0,0,3);");
+        stylePlayBtn(actionBtn, false);
         actionBtn.setOnAction(e -> launchGame());
 
         btnRow.getChildren().addAll(installBtn, actionBtn);
-        getChildren().addAll(title, sub, mainCard, progressCard, logTabPane, btnRow);
+
+        getChildren().addAll(title, sub, mainCard, progressCard, logPane, btnRow);
     }
 
+    // ── Klasör butonu fabrikası ──────────────────────────────────────
+    private Button folderButton(String text, String bg, String fg,
+                                java.nio.file.Path path) {
+        Button btn = new Button(text);
+        btn.setStyle(
+            "-fx-background-color:" + bg + ";-fx-text-fill:" + fg + ";" +
+            "-fx-background-radius:6;-fx-padding:4 12;-fx-cursor:hand;-fx-font-size:11px;");
+        btn.setOnAction(e -> openFolder(path));
+        // Hover efekti
+        btn.setOnMouseEntered(e -> btn.setStyle(
+            "-fx-background-color:#6c63ff66;-fx-text-fill:#ffffff;" +
+            "-fx-background-radius:6;-fx-padding:4 12;-fx-cursor:hand;-fx-font-size:11px;"));
+        btn.setOnMouseExited(e -> btn.setStyle(
+            "-fx-background-color:" + bg + ";-fx-text-fill:" + fg + ";" +
+            "-fx-background-radius:6;-fx-padding:4 12;-fx-cursor:hand;-fx-font-size:11px;"));
+        return btn;
+    }
+
+    // ── Klasörü dosya yöneticisinde aç (Win/Linux/macOS) ────────────
+    private void openFolder(java.nio.file.Path path) {
+        try {
+            // Klasör yoksa oluştur
+            java.nio.file.Files.createDirectories(path);
+            String os = System.getProperty("os.name").toLowerCase();
+            ProcessBuilder pb;
+            if (os.contains("win")) {
+                pb = new ProcessBuilder("explorer", path.toAbsolutePath().toString());
+            } else if (os.contains("mac")) {
+                pb = new ProcessBuilder("open", path.toAbsolutePath().toString());
+            } else {
+                // Linux: xdg-open, nautilus, thunar — sırayla dene
+                pb = new ProcessBuilder("xdg-open", path.toAbsolutePath().toString());
+            }
+            pb.start();
+        } catch (Exception ex) {
+            addLog("⚠ Klasör açılamadı: " + ex.getMessage());
+        }
+    }
+
+    // ── Versiyon listesi ─────────────────────────────────────────────
     private void loadVersionsAsync() {
         new Thread(() -> {
             try {
                 List<VersionManager.MCVersion> versions = versionManager.fetchVersionList();
                 Platform.runLater(() -> {
                     versionCombo.getItems().clear();
-                    for (VersionManager.MCVersion v : versions) {
+                    for (VersionManager.MCVersion v : versions)
                         if (v.type.equals("release")) versionCombo.getItems().add(v.id);
-                    }
                     if (!versionCombo.getItems().isEmpty())
                         versionCombo.setValue(versionCombo.getItems().get(0));
                 });
@@ -249,13 +286,13 @@ public class PlayScreen extends VBox {
         }, "version-loader").start();
     }
 
+    // ── Kurulum ──────────────────────────────────────────────────────
     private void installVersion(String versionId) {
         if (versionId == null) return;
         AtomicReference<String> versionRef = new AtomicReference<>(versionId);
 
         setStatus("⬇  Kuruluyor: " + versionId, "#f59e0b");
         progressBar.setVisible(true);
-        logBox.setVisible(true);
         installBtn.setDisable(true);
         actionBtn.setDisable(true);
 
@@ -263,7 +300,6 @@ public class PlayScreen extends VBox {
 
         new Thread(() -> {
             try {
-                // 1) Sürümü indir (0-40%)
                 addLog("📦 Sürüm indiriliyor: " + versionRef.get());
                 versionManager.downloadVersion(versionRef.get(), (msg, pct) ->
                     Platform.runLater(() -> {
@@ -272,50 +308,35 @@ public class PlayScreen extends VBox {
                         if (pct % 10 == 0) addLog(pct + "% " + msg);
                     })
                 );
-                // 1.5) Loader kurulumu
+
                 String loader = loaderCombo.getValue();
                 if ("Forge".equals(loader)) {
                     Platform.runLater(() -> setStatus("⚒ Forge kuruluyor...", "#f59e0b"));
                     addLog("⚒ Forge kuruluyor...");
                     com.nokta.launcher.core.ForgeInstaller fi =
-                        new com.nokta.launcher.core.ForgeInstaller(
-                            com.nokta.launcher.utils.PathManager.getGameDir());
+                        new com.nokta.launcher.core.ForgeInstaller(PathManager.getGameDir());
                     String forgeId = fi.installForge(versionRef.get(), (msg, pct) ->
-                        Platform.runLater(() -> {
-                            progressLabel.setText(msg);
-                            addLog(msg);
-                        })
-                    );
+                        Platform.runLater(() -> { progressLabel.setText(msg); addLog(msg); }));
                     versionRef.set(forgeId);
                 } else if ("NeoForge".equals(loader)) {
                     Platform.runLater(() -> setStatus("⚒ NeoForge kuruluyor...", "#f59e0b"));
                     addLog("⚒ NeoForge kuruluyor...");
                     com.nokta.launcher.core.ForgeInstaller fi =
-                        new com.nokta.launcher.core.ForgeInstaller(
-                            com.nokta.launcher.utils.PathManager.getGameDir());
+                        new com.nokta.launcher.core.ForgeInstaller(PathManager.getGameDir());
                     String neoId = fi.installNeoForge(versionRef.get(), (msg, pct) ->
-                        Platform.runLater(() -> {
-                            progressLabel.setText(msg);
-                            addLog(msg);
-                        })
-                    );
+                        Platform.runLater(() -> { progressLabel.setText(msg); addLog(msg); }));
                     versionRef.set(neoId);
                 } else if ("Fabric".equals(loader)) {
                     Platform.runLater(() -> setStatus("🧵 Fabric kuruluyor...", "#f59e0b"));
                     addLog("🧵 Fabric Loader kuruluyor...");
                     com.nokta.launcher.core.FabricInstaller fi =
-                        new com.nokta.launcher.core.FabricInstaller(com.nokta.launcher.utils.PathManager.getGameDir());
+                        new com.nokta.launcher.core.FabricInstaller(PathManager.getGameDir());
                     fi.install(versionRef.get(), (msg, pct) ->
-                        Platform.runLater(() -> {
-                            progressLabel.setText(msg);
-                            addLog(msg);
-                        })
-                    );
+                        Platform.runLater(() -> { progressLabel.setText(msg); addLog(msg); }));
                 }
 
-                // 2) Assets indir (40-80%)
                 Platform.runLater(() -> setStatus("🖼  Assets indiriliyor...", "#f59e0b"));
-                addLog("🖼 Assets indiriliyor (texture, ses, dil dosyaları)...");
+                addLog("🖼 Assets indiriliyor...");
                 assetDownloader.downloadAssets(versionRef.get(), (msg, pct) ->
                     Platform.runLater(() -> {
                         progressBar.setProgress(0.4 + pct / 250.0);
@@ -324,7 +345,6 @@ public class PlayScreen extends VBox {
                     })
                 );
 
-                // 3) Natives çıkart (80-100%)
                 Platform.runLater(() -> setStatus("🔧 Natives hazırlanıyor...", "#f59e0b"));
                 addLog("🔧 Natives çıkartılıyor...");
                 nativesManager.extractNatives(versionRef.get(), (msg, pct) ->
@@ -353,6 +373,7 @@ public class PlayScreen extends VBox {
         }, "installer").start();
     }
 
+    // ── Oyun başlatma ────────────────────────────────────────────────
     private void launchGame() {
         String versionId = versionCombo.getValue();
         if (versionId == null) { setStatus("❌ Sürüm seçiniz!", "#f04040"); return; }
@@ -360,131 +381,132 @@ public class PlayScreen extends VBox {
             setStatus("⚠ Önce 'Sürümü Kur' butonuna basın!", "#f59e0b"); return;
         }
 
-        // Fabric seçildiyse fabric version id'yi kullan
         String loader = loaderCombo.getValue();
         if ("Fabric".equals(loader)) {
             try {
                 com.nokta.launcher.core.FabricInstaller fi =
-                    new com.nokta.launcher.core.FabricInstaller(com.nokta.launcher.utils.PathManager.getGameDir());
+                    new com.nokta.launcher.core.FabricInstaller(PathManager.getGameDir());
                 String fabricId = fi.install(versionId, (msg, pct) -> {});
-                versionId = fabricId; // versionRef scope dışı — intentional
+                versionId = fabricId;
             } catch (Exception e) {
                 addLog("⚠ Fabric bulunamadı, Vanilla ile başlatılıyor.");
             }
         }
-        // AuthManager'dan hesap bilgilerini al
+
         com.nokta.launcher.core.AuthManager.Account acc = authManager.getCurrentAccount();
         GameLauncher.LaunchConfig cfg = new GameLauncher.LaunchConfig();
-        cfg.versionId    = versionId;
+        cfg.versionId   = versionId;
         String savedUsername = userField.getText() != null && !userField.getText().isEmpty()
             ? userField.getText() : "Oyuncu";
-        cfg.username     = (acc != null && acc.username != null && !acc.username.isEmpty())
+        cfg.username    = (acc != null && acc.username != null && !acc.username.isEmpty())
             ? acc.username : savedUsername;
-        cfg.uuid         = (acc != null) ? acc.uuid : cfg.uuid;
-        cfg.accessToken  = (acc != null) ? acc.accessToken : "0";
-        cfg.userType     = (acc != null && acc.microsoft) ? "msa" : "legacy";
-        cfg.ramMB        = (int) ramSlider.getValue();
-        cfg.javaPath     = findJava();
+        cfg.uuid        = (acc != null) ? acc.uuid : cfg.uuid;
+        cfg.accessToken = (acc != null) ? acc.accessToken : "0";
+        cfg.userType    = (acc != null && acc.microsoft) ? "msa" : "legacy";
+        cfg.ramMB       = (int) ramSlider.getValue();
+        cfg.javaPath    = findJava();
         cfg.useAikarsFlags = true;
 
-        // Son oynananı kaydet
         savePrefs();
-
         setStatus("🚀  Başlatılıyor...", "#3b82f6");
-        logBox.setVisible(true);
         logBox.getChildren().clear();
-        actionBtn.setText("⏹  DURDUR");
-        actionBtn.setStyle("-fx-background-color:linear-gradient(to right,#f04040,#e53e3e);"
-                    + "-fx-text-fill:white;-fx-font-size:15px;-fx-font-weight:bold;"
-                    + "-fx-background-radius:12;-fx-cursor:hand;"
-                    + "-fx-effect:dropshadow(gaussian,#f0404088,12,0,0,3);");
+        mcLogLines.clear();
+
+        stylePlayBtn(actionBtn, true);
         actionBtn.setOnAction(ev -> {
             if (minecraftProcess != null && minecraftProcess.isAlive())
                 minecraftProcess.destroyForcibly();
         });
+
+        final String finalVersionId = cfg.versionId;
+        final String finalLoader    = loaderCombo.getValue();
+
         new Thread(() -> {
             try {
                 Process process = gameLauncher.launch(cfg);
                 minecraftProcess = process;
-                final long startTime = System.currentTimeMillis();
-                // Discord RPC: Minecraft oynuyor
-                final String finalVersionId = cfg.versionId;
-                final String finalLoader = loaderCombo.getValue();
+
+                // Discord: MC açıldı
                 Platform.runLater(() -> {
                     if (discordRPC != null)
                         discordRPC.setPlayingMinecraft(finalVersionId, finalLoader);
                 });
-                // Canlı playtime sayacı — her MC açılışında 0'dan başlar
+
+                // Playtime sayacı
+                if (MainWindow.instance != null)
+                    MainWindow.instance.updateSessionPlaytime("00:00:00");
                 final long[] sessionStart = {System.currentTimeMillis()};
                 java.util.concurrent.ScheduledExecutorService ticker =
                     java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
                 ticker.scheduleAtFixedRate(() -> {
                     long elapsed = System.currentTimeMillis() - sessionStart[0];
-                    long secs  = (elapsed / 1000) % 60;
-                    long mins  = (elapsed / 60000) % 60;
-                    long hours = elapsed / 3600000;
-                    String t = String.format("%02d:%02d:%02d", hours, mins, secs);
+                    String t = String.format("%02d:%02d:%02d",
+                        elapsed / 3600000, (elapsed / 60000) % 60, (elapsed / 1000) % 60);
                     Platform.runLater(() -> {
                         if (MainWindow.instance != null)
                             MainWindow.instance.updateSessionPlaytime(t);
                     });
                 }, 5, 5, java.util.concurrent.TimeUnit.SECONDS);
 
-                // Log okuyucu — FPS parse + iki log (komut / chat)
+                // Log okuyucu
                 new Thread(() -> {
                     try {
                         var reader = new java.io.BufferedReader(
                             new java.io.InputStreamReader(process.getInputStream()));
-                        String line2;
-                        while ((line2 = reader.readLine()) != null) {
-                            final String l = line2;
-                            // FPS parse: "[xx fps]" veya "fps:" içeren satır
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            final String l = line;
+                            // FPS parse
                             if (l.contains(" fps") || l.contains("FPS")) {
                                 java.util.regex.Matcher m = java.util.regex.Pattern
-                                    .compile("(\\d+)\\s*fps", java.util.regex.Pattern.CASE_INSENSITIVE)
+                                    .compile("(\\d+)\\s*fps",
+                                        java.util.regex.Pattern.CASE_INSENSITIVE)
                                     .matcher(l);
                                 if (m.find()) {
                                     final String fps = m.group(1);
+                                    lastFps = fps;
                                     Platform.runLater(() -> {
                                         if (MainWindow.instance != null)
                                             MainWindow.instance.updateFps(fps);
                                     });
                                 }
                             }
-                            // Chat logu: [CHAT] içeren satırlar
-                            if (l.contains("[CHAT]") || l.contains("]: <")) {
-                                Platform.runLater(() -> addChatLog(l));
-                            } else {
-                                Platform.runLater(() -> addLog(l));
-                            }
+                            Platform.runLater(() -> addLog(l));
                         }
                     } catch (Exception ignored) {}
                     ticker.shutdownNow();
                 }, "mc-log-reader").start();
 
-                // Oyun çalışırken sunucu bilgisini Discord'a yansıt
+                // Discord: sunucu bilgisi polling
+                // Yeni DiscordRPC metodlarını kullanıyoruz — setPresence() artık yok
                 Thread discordPolling = new Thread(() -> {
-                    java.nio.file.Path serverFile = PathManager.getGameDir().resolve("server_info.json");
+                    java.nio.file.Path serverFile =
+                        PathManager.getGameDir().resolve("server_info.json");
                     String lastServer = "";
                     while (process.isAlive()) {
                         try {
                             Thread.sleep(3000);
                             if (java.nio.file.Files.exists(serverFile)) {
-                                com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseString(
-                                    java.nio.file.Files.readString(serverFile)).getAsJsonObject();
-                                String server = obj.has("server") ? obj.get("server").getAsString() : "";
+                                com.google.gson.JsonObject obj =
+                                    com.google.gson.JsonParser.parseString(
+                                        java.nio.file.Files.readString(serverFile))
+                                    .getAsJsonObject();
+                                String server = obj.has("server")
+                                    ? obj.get("server").getAsString() : "";
                                 if (!server.equals(lastServer)) {
                                     lastServer = server;
                                     final String s = server;
-                                    final String loaderName = loaderCombo.getValue();
                                     if (discordRPC != null) {
                                         if (s.isEmpty()) {
-                                            discordRPC.setPlayingMinecraft(finalVersionId, loaderName);
+                                            // Menüde
+                                            discordRPC.setPlayingMinecraft(
+                                                finalVersionId, finalLoader);
+                                        } else if (s.equals("Singleplayer")) {
+                                            discordRPC.setPlayingSingleplayer(
+                                                finalVersionId, finalLoader);
                                         } else {
-                                            discordRPC.setPresence(
-                                                "Nokta Client",
-                                                s.equals("Singleplayer") ? "Tek oyunculu" : "☁ " + s + " · MC " + finalVersionId
-                                            );
+                                            discordRPC.setPlayingOnServer(
+                                                s, finalVersionId, finalLoader);
                                         }
                                     }
                                 }
@@ -496,76 +518,37 @@ public class PlayScreen extends VBox {
                 discordPolling.start();
 
                 int exitCode = process.waitFor();
+
                 // Playtime kaydet
-                long elapsed = System.currentTimeMillis() - startTime;
-                try {
-                    java.nio.file.Path ptf = PathManager.getGameDir().resolve("playtime.json");
-                    long existing = 0;
-                    if (java.nio.file.Files.exists(ptf)) {
-                        com.google.gson.JsonObject pj = com.google.gson.JsonParser
-                            .parseString(java.nio.file.Files.readString(ptf)).getAsJsonObject();
-                        existing = pj.has("totalMs") ? pj.get("totalMs").getAsLong() : 0;
-                    }
-                    com.google.gson.JsonObject pj2 = new com.google.gson.JsonObject();
-                    pj2.addProperty("totalMs", existing + elapsed);
-                    java.nio.file.Files.writeString(ptf, pj2.toString());
-                } catch (Exception ignored) {}
-                // API'ye playtime gönder
-                final String apiUsername = cfg.username;
-                final long apiElapsed = elapsed;
-                new Thread(() -> {
-                    try {
-                        com.google.gson.JsonObject body = new com.google.gson.JsonObject();
-                        body.addProperty("username", apiUsername);
-                        body.addProperty("ms", apiElapsed);
-                        okhttp3.RequestBody reqBody = okhttp3.RequestBody.create(
-                            body.toString(), okhttp3.MediaType.get("application/json"));
-                        okhttp3.Request req = new okhttp3.Request.Builder()
-                            .url(com.nokta.launcher.core.NokTaConfig.API_BASE + "/api/playtime")
-                            .header("X-Nokta-Key", com.nokta.launcher.core.NokTaConfig.API_KEY)
-                            .post(reqBody)
-                            .build();
-                        okhttp3.OkHttpClient client = new okhttp3.OkHttpClient();
-                        try (okhttp3.Response res = client.newCall(req).execute()) {
-                            System.out.println("📊 Playtime API: " + res.code());
-                        }
-                    } catch (Exception e) {
-                        System.out.println("📊 Playtime API hata: " + e.getMessage());
-                    }
-                }, "playtime-api").start();
+                long elapsed = System.currentTimeMillis() - sessionStart[0];
+                savePlaytime(cfg.username, elapsed);
+
                 Platform.runLater(() -> {
                     minecraftProcess = null;
                     if (MainWindow.instance != null) MainWindow.instance.showHome();
-                    setStatus("⏹  Oyun kapandı (kod: " + exitCode + ")", "#666688");
-                    actionBtn.setText("▶  OYNA");
-                    actionBtn.setStyle(
-                        "-fx-background-color:linear-gradient(to right,#6c63ff,#3b82f6);" +
-                        "-fx-text-fill:white;-fx-font-size:15px;-fx-font-weight:bold;" +
-                        "-fx-background-radius:12;-fx-cursor:hand;" +
-                        "-fx-effect:dropshadow(gaussian,#6c63ff88,12,0,0,3);");
+                    stylePlayBtn(actionBtn, false);
                     actionBtn.setOnAction(ev -> launchGame());
                     actionBtn.setDisable(false);
                     if (exitCode != 0) {
-                        // Crash sebebini son log satırlarından bul
                         String crashReason = mcLogLines.stream()
-                            .filter(l -> l.contains("ERROR") || l.contains("Exception") || l.contains("FATAL") || l.contains("crash"))
+                            .filter(l -> l.contains("ERROR") || l.contains("Exception")
+                                || l.contains("FATAL") || l.contains("crash"))
                             .reduce((a, b) -> b).orElse("Bilinmeyen hata");
                         addLog("💥 Minecraft çöktü! Sebep: " + crashReason);
-                        Platform.runLater(() -> setStatus("💥 Çökme tespit edildi: " + crashReason.substring(0, Math.min(80, crashReason.length())), "#f04040"));
+                        setStatus("💥 Çökme: " +
+                            crashReason.substring(0, Math.min(80, crashReason.length())),
+                            "#f04040");
                     } else {
+                        setStatus("⏹  Oyun kapandı", "#666688");
                         addLog("⏹ Minecraft kapatıldı. Exit: " + exitCode);
                     }
                     if (discordRPC != null) discordRPC.setInLauncher();
                 });
+
             } catch (Exception ex) {
                 Platform.runLater(() -> {
                     setStatus("❌  " + ex.getMessage(), "#f04040");
-                    actionBtn.setText("▶  OYNA");
-                    actionBtn.setStyle(
-                        "-fx-background-color:linear-gradient(to right,#6c63ff,#3b82f6);" +
-                        "-fx-text-fill:white;-fx-font-size:15px;-fx-font-weight:bold;" +
-                        "-fx-background-radius:12;-fx-cursor:hand;" +
-                        "-fx-effect:dropshadow(gaussian,#6c63ff88,12,0,0,3);");
+                    stylePlayBtn(actionBtn, false);
                     actionBtn.setOnAction(ev -> launchGame());
                     actionBtn.setDisable(false);
                     addLog("❌ " + ex.getMessage());
@@ -574,6 +557,56 @@ public class PlayScreen extends VBox {
         }, "game-launcher").start();
     }
 
+    // ── Buton stilleri ───────────────────────────────────────────────
+    private void stylePlayBtn(Button btn, boolean running) {
+        btn.setText(running ? "⏹  DURDUR" : "▶  OYNA");
+        String color = running ? "#f04040,#e53e3e" : "#6c63ff,#3b82f6";
+        String shadow = running ? "#f0404088" : "#6c63ff88";
+        btn.setStyle(
+            "-fx-background-color:linear-gradient(to right," + color + ");" +
+            "-fx-text-fill:white;-fx-font-size:15px;-fx-font-weight:bold;" +
+            "-fx-background-radius:12;-fx-cursor:hand;" +
+            "-fx-effect:dropshadow(gaussian," + shadow + ",12,0,0,3);");
+    }
+
+    // ── Playtime kaydet + API ────────────────────────────────────────
+    private void savePlaytime(String username, long elapsedMs) {
+        try {
+            java.nio.file.Path ptf = PathManager.getGameDir().resolve("playtime.json");
+            long existing = 0;
+            if (java.nio.file.Files.exists(ptf)) {
+                com.google.gson.JsonObject pj = com.google.gson.JsonParser
+                    .parseString(java.nio.file.Files.readString(ptf)).getAsJsonObject();
+                existing = pj.has("totalMs") ? pj.get("totalMs").getAsLong() : 0;
+            }
+            com.google.gson.JsonObject pj2 = new com.google.gson.JsonObject();
+            pj2.addProperty("totalMs", existing + elapsedMs);
+            java.nio.file.Files.writeString(ptf, pj2.toString());
+        } catch (Exception ignored) {}
+
+        new Thread(() -> {
+            try {
+                com.google.gson.JsonObject body = new com.google.gson.JsonObject();
+                body.addProperty("username", username);
+                body.addProperty("ms", elapsedMs);
+                okhttp3.RequestBody reqBody = okhttp3.RequestBody.create(
+                    body.toString(), okhttp3.MediaType.get("application/json"));
+                okhttp3.Request req = new okhttp3.Request.Builder()
+                    .url(com.nokta.launcher.core.NokTaConfig.API_BASE + "/api/playtime")
+                    .header("X-Nokta-Key", com.nokta.launcher.core.NokTaConfig.API_KEY)
+                    .post(reqBody)
+                    .build();
+                try (okhttp3.Response res =
+                        new okhttp3.OkHttpClient().newCall(req).execute()) {
+                    System.out.println("📊 Playtime API: " + res.code());
+                }
+            } catch (Exception e) {
+                System.out.println("📊 Playtime API hata: " + e.getMessage());
+            }
+        }, "playtime-api").start();
+    }
+
+    // ── Yardımcılar ──────────────────────────────────────────────────
     private void setStatus(String msg, String color) {
         statusLabel.setText(msg);
         statusLabel.setStyle("-fx-text-fill:" + color + ";-fx-font-size:13px;");
@@ -585,25 +618,12 @@ public class PlayScreen extends VBox {
         lbl.setStyle("-fx-text-fill:#aaaacc;-fx-font-size:11px;-fx-font-family:monospace;");
         lbl.setWrapText(true);
         logBox.getChildren().add(lbl);
-        // Otomatik scroll
-        javafx.application.Platform.runLater(() -> {
+        Platform.runLater(() -> {
             javafx.scene.Parent p = logBox.getParent();
-            if (p instanceof javafx.scene.control.ScrollPane sp) sp.setVvalue(1.0);
+            if (p instanceof ScrollPane sp) sp.setVvalue(1.0);
         });
     }
-    private void addChatLog(String msg) {
-        // "[CHAT] <oyuncu> mesaj" formatını temizle
-        String clean = msg.replaceAll(".*\\[CHAT\\]\\s*", "").replaceAll(".*\\]: ", "");
-        chatLogLines.add(clean);
-        Label lbl = new Label(clean);
-        lbl.setStyle("-fx-text-fill:#ddddff;-fx-font-size:12px;");
-        lbl.setWrapText(true);
-        chatLogBox.getChildren().add(lbl);
-        javafx.application.Platform.runLater(() -> {
-            javafx.scene.Parent p = chatLogBox.getParent();
-            if (p instanceof javafx.scene.control.ScrollPane sp) sp.setVvalue(1.0);
-        });
-    }
+
     private void savePrefs() {
         try {
             com.google.gson.JsonObject j = new com.google.gson.JsonObject();
@@ -623,13 +643,13 @@ public class PlayScreen extends VBox {
             if (j.has("loader"))   loaderCombo.setValue(j.get("loader").getAsString());
             if (j.has("ram"))      ramSlider.setValue(j.get("ram").getAsDouble());
             if (j.has("username")) userField.setText(j.get("username").getAsString());
-            // version: loadVersionsAsync bittikten sonra set edilecek
             if (j.has("version")) {
                 String savedVer = j.get("version").getAsString();
-                versionCombo.getItems().addListener((javafx.collections.ListChangeListener<String>) c -> {
-                    if (versionCombo.getItems().contains(savedVer))
-                        javafx.application.Platform.runLater(() -> versionCombo.setValue(savedVer));
-                });
+                versionCombo.getItems().addListener(
+                    (javafx.collections.ListChangeListener<String>) c -> {
+                        if (versionCombo.getItems().contains(savedVer))
+                            Platform.runLater(() -> versionCombo.setValue(savedVer));
+                    });
             }
         } catch (Exception ignored) {}
     }
@@ -642,8 +662,8 @@ public class PlayScreen extends VBox {
     }
 
     public static Process getMinecraftProcess() { return minecraftProcess; }
+
     private String findJava() {
-        // 1. JAVA_HOME
         String javaHome = System.getenv("JAVA_HOME");
         if (javaHome != null && !javaHome.isEmpty()) {
             java.io.File f = new java.io.File(javaHome,
@@ -651,7 +671,6 @@ public class PlayScreen extends VBox {
                     ? "bin/javaw.exe" : "bin/java");
             if (f.exists()) return f.getAbsolutePath();
         }
-        // 2. java.home (mevcut JVM'nin yolu)
         String javaHomeJVM = System.getProperty("java.home");
         if (javaHomeJVM != null) {
             java.io.File f = new java.io.File(javaHomeJVM,
@@ -659,7 +678,6 @@ public class PlayScreen extends VBox {
                     ? "bin/javaw.exe" : "bin/java");
             if (f.exists()) return f.getAbsolutePath();
         }
-        // 3. Windows registry'den
         if (System.getProperty("os.name").toLowerCase().contains("win")) {
             try {
                 Process p = Runtime.getRuntime().exec(new String[]{"where", "javaw"});
@@ -668,10 +686,10 @@ public class PlayScreen extends VBox {
                 if (!out.isEmpty()) return out.split("\n")[0].trim();
             } catch (Exception ignored) {}
         }
-        // 4. macOS — /usr/libexec/java_home
         if (System.getProperty("os.name").toLowerCase().contains("mac")) {
             try {
-                Process p = Runtime.getRuntime().exec(new String[]{"/usr/libexec/java_home", "-v", "21"});
+                Process p = Runtime.getRuntime().exec(
+                    new String[]{"/usr/libexec/java_home", "-v", "21"});
                 p.waitFor(3, java.util.concurrent.TimeUnit.SECONDS);
                 String out = new String(p.getInputStream().readAllBytes()).trim();
                 if (!out.isEmpty()) {
@@ -680,8 +698,6 @@ public class PlayScreen extends VBox {
                 }
             } catch (Exception ignored) {}
         }
-        // 5. Fallback
         return "java";
     }
-
 }

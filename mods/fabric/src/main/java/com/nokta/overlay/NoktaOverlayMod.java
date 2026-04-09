@@ -4,24 +4,24 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.minecraft.client.gui.screens.ChatScreen;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 
 public class NoktaOverlayMod implements ClientModInitializer {
+
     public static OverlayRenderer renderer;
 
     @Override
     public void onInitializeClient() {
         renderer = new OverlayRenderer();
         ScreenshotNotifier.start();
-        // Screenshot chat mesajına [Copy] butonu ekle
-        // Screenshot watcher - chat'e [Copy] butonu ekle
+
+        // ── Screenshot watcher ───────────────────────────────────────
         final String[] lastSsPath = {""};
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
             if (mc.level == null) return;
@@ -29,104 +29,111 @@ public class NoktaOverlayMod implements ClientModInitializer {
                 java.nio.file.Path dir = java.nio.file.Path.of(
                     System.getProperty("user.home"), ".nokta-launcher", "screenshots");
                 if (!java.nio.file.Files.exists(dir)) return;
-                java.util.Optional<java.nio.file.Path> last = java.nio.file.Files.list(dir)
-                    .filter(p -> p.toString().endsWith(".png"))
-                    .max(java.util.Comparator.comparingLong(p -> {
-                        try { return java.nio.file.Files.getLastModifiedTime(p).toMillis(); }
-                        catch (Exception e) { return 0L; }
-                    }));
+                java.util.Optional<java.nio.file.Path> last =
+                    java.nio.file.Files.list(dir)
+                        .filter(p -> p.toString().endsWith(".png"))
+                        .max(java.util.Comparator.comparingLong(p -> {
+                            try { return java.nio.file.Files.getLastModifiedTime(p).toMillis(); }
+                            catch (Exception e) { return 0L; }
+                        }));
                 if (last.isPresent()) {
                     String path2 = last.get().toString();
                     long mod = java.nio.file.Files.getLastModifiedTime(last.get()).toMillis();
                     if (!path2.equals(lastSsPath[0]) && System.currentTimeMillis() - mod < 3000) {
                         lastSsPath[0] = path2;
                         ScreenshotNotifier.setLastPath(path2);
-
                     }
                 }
             } catch (Exception ignored) {}
         });
-        // Vanilla screenshot mesajına [Copy] ekle — tick watcher ile
-        // Tick watcher zaten lastSsPath'i guncelliyor
-        // MODIFY_GAME yerine ALLOW_RECEIVE kullan
+
+        // ── Screenshot [Copy] butonu ─────────────────────────────────
         net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.ALLOW_GAME.register((msg, overlay) -> {
             String txt = msg.getString();
             if (txt.contains("olarak kaydedildi") || txt.contains("screenshot was saved")) {
-                System.out.println("[Nokta] Screenshot mesaji alindi: " + txt);
-                // Son screenshot dosyasini bul
                 try {
                     java.nio.file.Path ssDir = java.nio.file.Path.of(
                         System.getProperty("user.home"), ".nokta-launcher", "screenshots");
                     if (java.nio.file.Files.exists(ssDir)) {
-                        java.util.Optional<java.nio.file.Path> latest = java.nio.file.Files.list(ssDir)
-                            .filter(p -> p.toString().endsWith(".png"))
-                            .max(java.util.Comparator.comparingLong(p -> {
-                                try { return java.nio.file.Files.getLastModifiedTime(p).toMillis(); }
-                                catch (Exception e) { return 0L; }
-                            }));
-                        if (latest.isPresent()) {
-                            lastSsPath[0] = latest.get().toString();
-                            System.out.println("[Nokta] Son screenshot: " + lastSsPath[0]);
-                        }
+                        java.util.Optional<java.nio.file.Path> latest =
+                            java.nio.file.Files.list(ssDir)
+                                .filter(p -> p.toString().endsWith(".png"))
+                                .max(java.util.Comparator.comparingLong(p -> {
+                                    try { return java.nio.file.Files.getLastModifiedTime(p).toMillis(); }
+                                    catch (Exception e) { return 0L; }
+                                }));
+                        if (latest.isPresent()) lastSsPath[0] = latest.get().toString();
                     }
                 } catch (Exception ignored) {}
             }
             return true;
         });
-        // MODIFY_GAME ile [Copy] butonu ekle
+
         net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.MODIFY_GAME.register((msg, overlay) -> {
             String txt = msg.getString();
             if ((txt.contains("olarak kaydedildi") || txt.contains("screenshot was saved"))
                     && !lastSsPath[0].isEmpty()) {
-                System.out.println("[Nokta] [Copy] ekleniyor: " + lastSsPath[0]);
                 return ((net.minecraft.network.chat.MutableComponent) msg)
-                    .append(net.minecraft.network.chat.Component.literal(" [Copy]")
-                        .setStyle(net.minecraft.network.chat.Style.EMPTY
+                    .append(Component.literal(" [Copy]")
+                        .setStyle(Style.EMPTY
                             .withColor(0x55FFFF)
                             .withUnderlined(true)
-                            .withClickEvent(new net.minecraft.network.chat.ClickEvent(
-                                net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND,
+                            .withClickEvent(new ClickEvent(
+                                ClickEvent.Action.RUN_COMMAND,
                                 "/noktacopy " + lastSsPath[0]))));
             }
             return msg;
         });
-        // /noktacopy client komutu
+
+        // ── /noktacopy komutu ────────────────────────────────────────
         net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT.register((dispatcher, ctx) -> {
-            dispatcher.register(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
-                .literal("noktacopy")
-                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
-                    .argument("file", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
-                    .executes(c -> {
-                        String file = com.mojang.brigadier.arguments.StringArgumentType.getString(c, "file");
-                        try {
-                            Runtime.getRuntime().exec(new String[]{"xclip","-selection","clipboard","-t","image/png","-i",file});
-                            c.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Kopyalandı!").setStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0xAAFFAA)));
-                        } catch (Exception e) {}
-                        return 1;
-                    })));
+            dispatcher.register(
+                net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
+                    .literal("noktacopy")
+                    .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
+                        .argument("file", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+                        .executes(c -> {
+                            String file = com.mojang.brigadier.arguments.StringArgumentType.getString(c, "file");
+                            try {
+                                Runtime.getRuntime().exec(new String[]{
+                                    "xclip","-selection","clipboard","-t","image/png","-i", file});
+                                c.getSource().sendFeedback(Component.literal("✅ Kopyalandı!")
+                                    .setStyle(Style.EMPTY.withColor(0xAAFFAA)));
+                            } catch (Exception e) {
+                                c.getSource().sendFeedback(Component.literal("❌ Hata: " + e.getMessage()));
+                            }
+                            return 1;
+                        })));
         });
-        // Screenshot kopyala butonu click
-        net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
-            net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents.afterMouseClick(screen).register(
-                (scr, mx, my, btn) -> ScreenshotNotifier.onClick((int)mx, (int)my, scr.width, scr.height)
-            );
+
+        // ── Screenshot onClick ───────────────────────────────────────
+        ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
+            ScreenMouseEvents.afterMouseClick(screen).register(
+                (scr, mx, my, btn) -> ScreenshotNotifier.onClick((int)mx, (int)my, scr.width, scr.height));
         });
+
+        // ── HUD render ───────────────────────────────────────────────
         HudRenderCallback.EVENT.register(renderer);
 
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (renderer != null) {
-                renderer.onTick(client);
-                // Her 2 saniyede dosyaları oku
-                if (System.currentTimeMillis() % 2000 < 50) renderer.readFiles();
-            }
-        });
-
-        // Chat açılınca ilk tick'te input'u temizle
+        // ── Chat açılınca HUD edit modu + T fix ─────────────────────
         final boolean[] chatWasOpen = {false};
-        final boolean[] cleared = {false};
+        final boolean[] cleared     = {false};
+
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
             boolean chatOpen = mc.screen instanceof ChatScreen;
-            if (chatOpen && !chatWasOpen[0]) { cleared[0] = false; }
+
+            // Chat yeni açıldı
+            if (chatOpen && !chatWasOpen[0]) {
+                cleared[0] = false;
+                OverlayRenderer.hud.setEditMode(true);  // HUD edit modu aç
+            }
+            // Chat kapandı
+            if (!chatOpen && chatWasOpen[0]) {
+                OverlayRenderer.hud.setEditMode(false); // HUD edit modu kapat
+                OverlayRenderer.hud.onMouseRelease();   // drag/resize bitir
+            }
+
+            // T harfi fix — input kutusunu temizle
             if (chatOpen && !cleared[0]) {
                 cleared[0] = true;
                 try {
@@ -140,53 +147,69 @@ public class NoktaOverlayMod implements ClientModInitializer {
                     }
                 } catch (Exception ignored) {}
             }
+
             chatWasOpen[0] = chatOpen;
         });
-        // /nokta_copy komutu - ss panoya kopyala
-        net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT.register((dispatcher, ctx) -> {
-            dispatcher.register(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("nokta_copy")
-                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument("path",
-                    com.mojang.brigadier.arguments.StringArgumentType.greedyString())
-                    .executes(c -> {
-                        String p = com.mojang.brigadier.arguments.StringArgumentType.getString(c, "path");
-                        try {
-                            Runtime.getRuntime().exec(new String[]{"xclip","-selection","clipboard","-t","image/png","-i",p});
-                        } catch (Exception e) {
-                            c.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Hata: " + e.getMessage()));
-                        }
-                        return 1;
-                    })));
+
+        // ── Chat açıkken mouse olayları → HUD drag/resize ────────────
+        ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
+            if (!(screen instanceof ChatScreen)) return;
+
+            ScreenMouseEvents.beforeMouseClick(screen).register((scr, mx, my, btn) -> {
+                if (btn == 0) OverlayRenderer.hud.onMousePress(mx, my);
+            });
+
+            // Drag: tick ile mouse pozisyonu takip et
+            // (beforeMouseDrag bu Fabric versiyonunda yok)
+
+            ScreenMouseEvents.beforeMouseRelease(screen).register((scr, mx, my, btn) -> {
+                if (btn == 0) OverlayRenderer.hud.onMouseRelease();
+            });
         });
-        // Sunucu join/disconnect        // Sunucu join/disconnect        // Sunucu join/disconnect olayları → server_info.json
+
+        // ── Tick: FPS/Server güncelle ────────────────────────────────
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (renderer != null) {
+                renderer.onTick(client);
+                if (System.currentTimeMillis() % 2000 < 50) renderer.readFiles();
+            }
+        });
+
+        // ── Sunucu join/disconnect → server_info.json ────────────────
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             try {
                 String server = "";
                 var addr = handler.getConnection().getRemoteAddress();
-                if (addr == null || addr.toString().contains("127.0.0.1") || addr.toString().contains("localhost")) {
+                if (addr == null
+                        || addr.toString().contains("127.0.0.1")
+                        || addr.toString().contains("localhost")) {
                     server = "Singleplayer";
                 } else {
-                    server = addr.toString().replaceAll("/", "").replaceAll(":.*", "");
+                    server = addr.toString().replaceAll("/","").replaceAll(":.*","");
                 }
                 java.nio.file.Path f = java.nio.file.Paths.get(
-                    System.getProperty("user.home"), ".nokta-launcher", "screenshots", "server_info.json");
+                    System.getProperty("user.home"), ".nokta-launcher", "server_info.json");
                 com.google.gson.JsonObject obj = new com.google.gson.JsonObject();
                 obj.addProperty("server", server);
                 java.nio.file.Files.writeString(f, obj.toString());
                 System.out.println("[Nokta] Sunucu: " + server);
             } catch (Exception ignored) {}
         });
+
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             try {
                 java.nio.file.Path f = java.nio.file.Paths.get(
-                    System.getProperty("user.home"), ".nokta-launcher", "screenshots", "server_info.json");
+                    System.getProperty("user.home"), ".nokta-launcher", "server_info.json");
                 com.google.gson.JsonObject obj = new com.google.gson.JsonObject();
                 obj.addProperty("server", "");
                 java.nio.file.Files.writeString(f, obj.toString());
             } catch (Exception ignored) {}
         });
-        // Spotify butonunu menülere ekle
+
+        // ── Spotify ──────────────────────────────────────────────────
         SpotifyButtonInjector.register();
 
+        // ── Launcher durdurulunca PID temizle ────────────────────────
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             try {
                 java.nio.file.Path pidFile = java.nio.file.Paths.get(
@@ -199,6 +222,6 @@ public class NoktaOverlayMod implements ClientModInitializer {
             } catch (Exception ignored) {}
         });
 
-        System.out.println("[Nokta] Overlay + Spotify butonları yüklendi!");
+        System.out.println("[Nokta] HUD + Overlay + Spotify yüklendi!");
     }
 }

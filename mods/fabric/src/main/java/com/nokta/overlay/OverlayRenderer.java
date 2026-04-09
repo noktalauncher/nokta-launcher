@@ -26,8 +26,11 @@ public class OverlayRenderer implements HudRenderCallback {
     public static String  spotifyArtist   = "";
     public static String  spotifyAlbumArt = "";
     public static boolean spotifyPlaying  = false;
-    public static int     spotifyProgress = 0;  // ms
-    public static int     spotifyDuration = 0;  // ms
+    public static int     spotifyProgress = 0;
+    public static int     spotifyDuration = 0;
+
+    // HUD
+    public static final NokHud hud = new NokHud();
 
     private long   lastRead   = 0;
     private String lastServer = "";
@@ -45,42 +48,39 @@ public class OverlayRenderer implements HudRenderCallback {
         long now = System.currentTimeMillis();
         if (now - lastRead > 1000) { lastRead = now; readFiles(); }
 
+        // ── Nokta HUD ────────────────────────────────────────────────
+        hud.render(ctx, mc);
+
+        // ── Voice overlay ────────────────────────────────────────────
         if (channelName != null && !voiceUsers.isEmpty()) {
             drawVoiceOverlay(ctx, mc);
         }
-        
     }
 
     private void drawVoiceOverlay(GuiGraphics ctx, Minecraft mc) {
         int x = 5, y = 8;
         int rowH = 22, avatarSize = 16, boxW = 155;
-
         ctx.fill(x, y, x + boxW, y + 13, 0x22000000);
         ctx.fill(x, y, x + 2, y + 13, 0xaa5865F2);
         ctx.drawString(mc.font, "§7" + channelName, x + 6, y + 3, 0x99ffffff, false);
         y += 16;
-
         for (int i = 0; i < voiceUsers.size(); i++) {
             String  name = voiceUsers.get(i);
             boolean spk  = i < speaking.size() && speaking.get(i);
             boolean mut  = i < muted.size()    && muted.get(i);
             int rowY = y + i * rowH;
             int rowB = rowY + rowH - 2;
-
             if (spk) ctx.fill(x, rowY, x + boxW, rowB, 0x2257f287);
             ctx.fill(x, rowY, x + 2, rowB, spk ? 0xcc57f287 : 0x33ffffff);
-
             int col = AVATAR_COLORS[Math.abs(name.hashCode()) % AVATAR_COLORS.length];
             int ax = x + 5, ay = rowY + 3;
             ctx.fill(ax, ay, ax + avatarSize, ay + avatarSize, col);
             ctx.drawString(mc.font,
                 name.isEmpty() ? "?" : String.valueOf(name.charAt(0)).toUpperCase(),
                 ax + 4, ay + 4, 0xffffff, false);
-
             String dn = name.length() > 13 ? name.substring(0, 11) + ".." : name;
             ctx.drawString(mc.font, dn, ax + avatarSize + 5, rowY + 7,
                 spk ? 0xff57f287 : (mut ? 0x77888888 : 0xbbdddddd), false);
-
             if (mut) ctx.drawString(mc.font, "§c✖", x + boxW - 14, rowY + 5, 0x99ff4444, false);
         }
     }
@@ -104,7 +104,7 @@ public class OverlayRenderer implements HudRenderCallback {
     public static void writeCmd(String cmd) {
         try {
             JsonObject j = new JsonObject();
-            j.addProperty("cmd", cmd);
+            j.addProperty("cmd",  cmd);
             j.addProperty("time", System.currentTimeMillis());
             Files.writeString(SPOTIFY_CMD, j.toString());
         } catch (Exception ignored) {}
@@ -127,7 +127,6 @@ public class OverlayRenderer implements HudRenderCallback {
                 }
             } else { channelName = null; voiceUsers.clear(); }
         } catch (Exception ignored) {}
-
         try {
             if (Files.exists(SPOTIFY_FILE)) {
                 JsonObject j = JsonParser.parseString(Files.readString(SPOTIFY_FILE)).getAsJsonObject();

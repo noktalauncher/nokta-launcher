@@ -442,6 +442,11 @@ public class PlayScreen extends VBox {
                     long elapsed = System.currentTimeMillis() - sessionStart[0];
                     String t = String.format("%02d:%02d:%02d",
                         elapsed / 3600000, (elapsed / 60000) % 60, (elapsed / 1000) % 60);
+                    // HUD için dosyaya yaz
+                    try {
+                        java.nio.file.Files.writeString(
+                            PathManager.getGameDir().resolve("session_time.txt"), t);
+                    } catch (Exception ignored) {}
                     Platform.runLater(() -> {
                         if (MainWindow.instance != null)
                             MainWindow.instance.updateSessionPlaytime(t);

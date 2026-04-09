@@ -14,6 +14,8 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.network.NetworkEvent;
 
 @Mod("nokta_overlay_forge")
 public class NokTaForgeMod {
@@ -29,6 +31,8 @@ public class NokTaForgeMod {
         MinecraftForge.EVENT_BUS.addListener(this::onClientTick);
         MinecraftForge.EVENT_BUS.addListener(this::onMouseClick);
         MinecraftForge.EVENT_BUS.addListener(this::onScreenOpen);
+        MinecraftForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
+        MinecraftForge.EVENT_BUS.addListener(this::onPlayerLoggedOut);
     }
 
     private void onClientSetup(FMLClientSetupEvent event) {
@@ -88,6 +92,37 @@ public class NokTaForgeMod {
             hud.setEditMode(false);
             hud.onMouseRelease();
         }
+    }
+
+    // ── Sunucu join/disconnect → server_info.json ───────────────────────
+    private void onPlayerLoggedIn(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+        writeServerInfo();
+    }
+    private void onPlayerLoggedOut(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
+        try {
+            java.nio.file.Path f = java.nio.file.Paths.get(
+                System.getProperty("user.home"), ".nokta-launcher", "server_info.json");
+            com.google.gson.JsonObject obj = new com.google.gson.JsonObject();
+            obj.addProperty("server", "");
+            java.nio.file.Files.writeString(f, obj.toString());
+        } catch (Exception ignored) {}
+    }
+    private void writeServerInfo() {
+        try {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            String server = "";
+            if (mc.getCurrentServer() != null) {
+                server = mc.getCurrentServer().ip;
+            } else if (mc.hasSingleplayerServer()) {
+                server = "Singleplayer";
+            }
+            java.nio.file.Path f = java.nio.file.Paths.get(
+                System.getProperty("user.home"), ".nokta-launcher", "server_info.json");
+            com.google.gson.JsonObject obj = new com.google.gson.JsonObject();
+            obj.addProperty("server", server);
+            java.nio.file.Files.writeString(f, obj.toString());
+            System.out.println("[Nokta Forge] Sunucu: " + server);
+        } catch (Exception ignored) {}
     }
 
     // ── /noktacopy komutu ─────────────────────────────────────────────

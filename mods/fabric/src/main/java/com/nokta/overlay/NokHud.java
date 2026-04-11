@@ -26,6 +26,30 @@ public class NokHud {
         HudConfig cfg = HudConfig.get();
         if (!cfg.visible) return;
 
+        // ── GLFW tabanlı drag — render her frame çalışır, tick'ten daha güvenilir
+        if (editMode) {
+            try {
+                long win = mc.getWindow().getWindow();
+                int state = org.lwjgl.glfw.GLFW.glfwGetMouseButton(win, org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT);
+                double[] xArr = new double[1], yArr = new double[1];
+                org.lwjgl.glfw.GLFW.glfwGetCursorPos(win, xArr, yArr);
+                double scaleX = mc.getWindow().getGuiScaledWidth()  / (double) mc.getWindow().getScreenWidth();
+                double scaleY = mc.getWindow().getGuiScaledHeight() / (double) mc.getWindow().getScreenHeight();
+                double mx = xArr[0] * scaleX, my = yArr[0] * scaleY;
+                if (state == org.lwjgl.glfw.GLFW.GLFW_PRESS && !wasPressed) {
+                    onMousePress(mx, my);
+                    wasPressed = true;
+                } else if (state == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
+                    onMouseMove(mx, my,
+                        mc.getWindow().getGuiScaledWidth(),
+                        mc.getWindow().getGuiScaledHeight());
+                } else if (wasPressed) {
+                    onMouseRelease();
+                    wasPressed = false;
+                }
+            } catch (Exception ignored) {}
+        }
+
         // Playtime oku (her 5s)
         long now = System.currentTimeMillis();
         if (now - lastPlaytimeRead > 5000) {
@@ -58,7 +82,7 @@ public class NokHud {
         int boxH   = padY * 2 + lines.length * lineH + (lines.length - 1) * (int)(2 * sc);
 
         // Arka plan
-        int bgCol = editMode ? 0xaa1a1a3a : 0x44000000;
+        int bgCol = editMode ? 0x881a1a3a : 0x00000000;
         ctx.fill(px, py, px + boxW, py + boxH, bgCol);
 
         // Edit mode: kenar çizgisi

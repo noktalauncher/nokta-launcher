@@ -583,8 +583,20 @@ public class MainWindow {
     private javafx.scene.control.Label sessionPlaytimeLabel = null;
     private javafx.scene.control.Label fpsLabel = null;
     // Son bilinen değerler — sayfa geçişinde kaybolmasın
-    private String lastPlaytime = "00:00:00";
+    private String lastPlaytime = loadLastPlaytime();
     private String lastFps      = "—";
+
+    private static String loadLastPlaytime() {
+        try {
+            java.nio.file.Path f = com.nokta.launcher.utils.PathManager.getGameDir().resolve("playtime.json");
+            if (!java.nio.file.Files.exists(f)) return "00:00:00";
+            com.google.gson.JsonObject j = com.google.gson.JsonParser
+                .parseString(java.nio.file.Files.readString(f)).getAsJsonObject();
+            long totalMs = j.has("totalMs") ? j.get("totalMs").getAsLong() : 0;
+            long h = totalMs / 3600000, m = (totalMs / 60000) % 60, s = (totalMs / 1000) % 60;
+            return String.format("%02d:%02d:%02d", h, m, s);
+        } catch (Exception e) { return "00:00:00"; }
+    }
 
     public void updateSessionPlaytime(String t) {
         lastPlaytime = t;

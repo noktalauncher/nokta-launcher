@@ -29,6 +29,11 @@ public class NoktaLauncher extends Application {
             }
         } catch (Exception ignored) {}
 
+        // WM_CLASS — Linux taskbar ikonunu .desktop ile eşleştirir
+        try {
+            com.sun.glass.ui.Application.GetApplication().setName("nokta-launcher");
+        } catch (Exception ignored) {}
+
         SplashScreen splash = new SplashScreen(primaryStage);
         splash.show(() -> {
             try {

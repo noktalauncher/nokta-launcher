@@ -16,6 +16,7 @@ public class NokHud {
 
     // Editmode: chat açıkken true
     private boolean editMode = false;
+    private boolean wasPressed        = false;
 
     // Playtime (launcher'dan IPC ile gelir — saniye cinsinden)
     private String playtime = "00:00:00";
@@ -33,8 +34,8 @@ public class NokHud {
                 int state = org.lwjgl.glfw.GLFW.glfwGetMouseButton(win, org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT);
                 double[] xArr = new double[1], yArr = new double[1];
                 org.lwjgl.glfw.GLFW.glfwGetCursorPos(win, xArr, yArr);
-                double scaleX = mc.getWindow().getGuiScaledWidth()  / (double) mc.getWindow().getScreenWidth();
-                double scaleY = mc.getWindow().getGuiScaledHeight() / (double) mc.getWindow().getScreenHeight();
+                double scaleX = mc.getWindow().getGuiScaledWidth()  / (double) mc.getWindow().getWidth();
+                double scaleY = mc.getWindow().getGuiScaledHeight() / (double) mc.getWindow().getHeight();
                 double mx = xArr[0] * scaleX, my = yArr[0] * scaleY;
                 if (state == org.lwjgl.glfw.GLFW.GLFW_PRESS && !wasPressed) {
                     onMousePress(mx, my);

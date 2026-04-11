@@ -22,6 +22,8 @@ public class PlayScreen extends VBox {
     private final com.nokta.launcher.core.AuthManager   authManager;
     private final com.nokta.launcher.discord.DiscordRPC discordRPC;
     private static volatile Process minecraftProcess = null;
+    private static long   sessionStartMs  = 0;
+    private static String lastSessionUser = null;
 
     static {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -61,8 +63,6 @@ public class PlayScreen extends VBox {
     private Button           installBtn;
     private VBox             logBox;
     private String           lastFps = "—";
-    private static long   sessionStartMs  = 0;
-    private static String lastSessionUser = null;
     private final java.util.List<String> mcLogLines = new java.util.ArrayList<>();
     private TextField        userField;
     private VBox             logPane;

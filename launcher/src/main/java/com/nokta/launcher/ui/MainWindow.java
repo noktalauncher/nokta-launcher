@@ -588,12 +588,12 @@ public class MainWindow {
 
     private static String loadLastPlaytime() {
         try {
-            java.nio.file.Path f = com.nokta.launcher.utils.PathManager.getGameDir().resolve("playtime.json");
+            java.nio.file.Path f = com.nokta.launcher.utils.PathManager.getGameDir().resolve("last_session.json");
             if (!java.nio.file.Files.exists(f)) return "00:00:00";
             com.google.gson.JsonObject j = com.google.gson.JsonParser
                 .parseString(java.nio.file.Files.readString(f)).getAsJsonObject();
-            long totalMs = j.has("totalMs") ? j.get("totalMs").getAsLong() : 0;
-            long h = totalMs / 3600000, m = (totalMs / 60000) % 60, s = (totalMs / 1000) % 60;
+            long ms = j.has("ms") ? j.get("ms").getAsLong() : 0;
+            long h = ms / 3600000, m = (ms / 60000) % 60, s = (ms / 1000) % 60;
             return String.format("%02d:%02d:%02d", h, m, s);
         } catch (Exception e) { return "00:00:00"; }
     }

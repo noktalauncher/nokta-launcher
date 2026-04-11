@@ -185,7 +185,18 @@ public class NoktaOverlayMod implements ClientModInitializer {
                         || addr.toString().contains("localhost")) {
                     server = "Singleplayer";
                 } else {
-                    server = addr.toString().replaceAll("/","").replaceAll(":.*","");
+                    // addr formatı: "hostname/ip:port" veya "/ip:port"
+                    String addrStr = addr.toString();
+                    // hostname varsa onu al, yoksa IP'yi al
+                    if (addrStr.contains("/")) {
+                        server = addrStr.substring(0, addrStr.indexOf("/"));
+                        if (server.isEmpty()) {
+                            // "/ip:port" formatı — IP'yi al
+                            server = addrStr.substring(1).replaceAll(":.*","");
+                        }
+                    } else {
+                        server = addrStr.replaceAll(":.*","");
+                    }
                 }
                 java.nio.file.Path f = java.nio.file.Paths.get(
                     System.getProperty("user.home"), ".nokta-launcher", "server_info.json");

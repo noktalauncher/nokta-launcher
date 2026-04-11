@@ -47,6 +47,7 @@ public class PlayScreen extends VBox {
     private String           lastFps = "—";
     private final java.util.List<String> mcLogLines = new java.util.ArrayList<>();
     private TextField        userField;
+    private VBox             logPane;
 
     public PlayScreen() {
         this.versionManager = new VersionManager(PathManager.getGameDir());
@@ -206,7 +207,9 @@ public class PlayScreen extends VBox {
         HBox.setHgrow(logSpacer, Priority.ALWAYS);
         logHeader.getChildren().addAll(logTitle, logSpacer, modsBtn, logsBtn);
 
-        VBox logPane = new VBox(6, logHeader, logScroll);
+        logPane = new VBox(6, logHeader, logScroll);
+        logPane.setVisible(false);
+        logPane.setManaged(false);
 
         // ── Alt buton satırı ─────────────────────────────────────────
         HBox btnRow = new HBox(12);
@@ -411,6 +414,8 @@ public class PlayScreen extends VBox {
         setStatus("🚀  Başlatılıyor...", "#3b82f6");
         logBox.getChildren().clear();
         mcLogLines.clear();
+        logPane.setVisible(true);
+        logPane.setManaged(true);
 
         stylePlayBtn(actionBtn, true);
         actionBtn.setOnAction(ev -> {
@@ -530,7 +535,7 @@ public class PlayScreen extends VBox {
 
                 Platform.runLater(() -> {
                     minecraftProcess = null;
-                    if (MainWindow.instance != null) MainWindow.instance.showHome();
+                    // showHome kaldırıldı — süre ve FPS korunsun
                     stylePlayBtn(actionBtn, false);
                     actionBtn.setOnAction(ev -> launchGame());
                     actionBtn.setDisable(false);

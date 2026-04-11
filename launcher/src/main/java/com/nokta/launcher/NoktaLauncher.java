@@ -21,6 +21,14 @@ public class NoktaLauncher extends Application {
         discord.connect();
         SpotifyManager.get().connect();
 
+        // Uygulama ikonu — Linux/Windows/macOS
+        try {
+            java.io.InputStream iconStream = getClass().getResourceAsStream("/assets/nokta_logo.png");
+            if (iconStream != null) {
+                primaryStage.getIcons().add(new javafx.scene.image.Image(iconStream));
+            }
+        } catch (Exception ignored) {}
+
         SplashScreen splash = new SplashScreen(primaryStage);
         splash.show(() -> {
             try {

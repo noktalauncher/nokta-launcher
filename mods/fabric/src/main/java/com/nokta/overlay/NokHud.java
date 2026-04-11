@@ -58,7 +58,7 @@ public class NokHud {
         int boxH   = padY * 2 + lines.length * lineH + (lines.length - 1) * (int)(2 * sc);
 
         // Arka plan
-        int bgCol = editMode ? 0xcc1a1a3a : 0x99000000;
+        int bgCol = editMode ? 0xaa1a1a3a : 0x44000000;
         ctx.fill(px, py, px + boxW, py + boxH, bgCol);
 
         // Edit mode: kenar çizgisi

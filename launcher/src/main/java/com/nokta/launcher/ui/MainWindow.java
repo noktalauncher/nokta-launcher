@@ -602,6 +602,11 @@ public class MainWindow {
         lastPlaytime = t;
         if (sessionPlaytimeLabel != null) sessionPlaytimeLabel.setText(t);
     }
+    // MC kapanınca total playtime'ı göster
+    public void refreshTotalPlaytime() {
+        lastPlaytime = loadLastPlaytime();
+        if (sessionPlaytimeLabel != null) sessionPlaytimeLabel.setText(lastPlaytime);
+    }
     public void updateFps(String fps) {
         lastFps = fps;
         if (fpsLabel != null) fpsLabel.setText(fps + " fps");

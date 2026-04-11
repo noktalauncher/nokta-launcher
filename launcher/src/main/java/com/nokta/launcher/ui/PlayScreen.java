@@ -553,6 +553,8 @@ public class PlayScreen extends VBox {
                         addLog("⏹ Minecraft kapatıldı. Exit: " + exitCode);
                     }
                     if (discordRPC != null) discordRPC.setInLauncher();
+                    // Total playtime'ı launcher'da göster
+                    if (MainWindow.instance != null) MainWindow.instance.refreshTotalPlaytime();
                 });
 
             } catch (Exception ex) {

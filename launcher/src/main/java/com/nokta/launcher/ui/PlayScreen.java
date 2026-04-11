@@ -27,6 +27,22 @@ public class PlayScreen extends VBox {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             Process p = minecraftProcess;
             if (p != null && p.isAlive()) {
+                // Playtime'ı kaydet — launcher kapanırken
+                long elapsed = System.currentTimeMillis() - sessionStartMs;
+                if (elapsed > 5000 && lastSessionUser != null) {
+                    try {
+                        java.nio.file.Path ptf = com.nokta.launcher.utils.PathManager.getGameDir().resolve("playtime.json");
+                        long existing = 0;
+                        if (java.nio.file.Files.exists(ptf)) {
+                            com.google.gson.JsonObject pj = com.google.gson.JsonParser
+                                .parseString(java.nio.file.Files.readString(ptf)).getAsJsonObject();
+                            existing = pj.has("totalMs") ? pj.get("totalMs").getAsLong() : 0;
+                        }
+                        com.google.gson.JsonObject pj2 = new com.google.gson.JsonObject();
+                        pj2.addProperty("totalMs", existing + elapsed);
+                        java.nio.file.Files.writeString(ptf, pj2.toString());
+                    } catch (Exception ignored) {}
+                }
                 p.destroy();
                 try { if (!p.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)) p.destroyForcibly(); }
                 catch (Exception ignored) {}
@@ -45,6 +61,8 @@ public class PlayScreen extends VBox {
     private Button           installBtn;
     private VBox             logBox;
     private String           lastFps = "—";
+    private static long   sessionStartMs  = 0;
+    private static String lastSessionUser = null;
     private final java.util.List<String> mcLogLines = new java.util.ArrayList<>();
     private TextField        userField;
     private VBox             logPane;

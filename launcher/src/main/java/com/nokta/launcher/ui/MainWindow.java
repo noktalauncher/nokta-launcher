@@ -107,6 +107,14 @@ public class MainWindow {
             scene.getStylesheets().add(css);
         } catch (Exception ignored) {}
 
+        // Uygulama ikonu
+        try {
+            java.io.InputStream iconStream = getClass().getResourceAsStream("/assets/nokta_logo.png");
+            if (iconStream != null) {
+                javafx.scene.image.Image icon = new javafx.scene.image.Image(iconStream);
+                stage.getIcons().add(icon);
+            }
+        } catch (Exception ignored) {}
         stage.setScene(scene);
         stage.setTitle("Nokta Launcher");
         stage.setMinWidth(1000);
@@ -574,11 +582,16 @@ public class MainWindow {
     // ── Canlı MC istatistikleri ───────────────────────────────────────────
     private javafx.scene.control.Label sessionPlaytimeLabel = null;
     private javafx.scene.control.Label fpsLabel = null;
+    // Son bilinen değerler — sayfa geçişinde kaybolmasın
+    private String lastPlaytime = "00:00:00";
+    private String lastFps      = "—";
 
     public void updateSessionPlaytime(String t) {
+        lastPlaytime = t;
         if (sessionPlaytimeLabel != null) sessionPlaytimeLabel.setText(t);
     }
     public void updateFps(String fps) {
+        lastFps = fps;
         if (fpsLabel != null) fpsLabel.setText(fps + " fps");
     }
     public void registerPlaytimeLabel(javafx.scene.control.Label l) { sessionPlaytimeLabel = l; }
@@ -735,8 +748,14 @@ public class MainWindow {
         l1.setStyle("-fx-text-fill:#555577;-fx-font-size:12px;");
         Label l2 = new Label(value);
         l2.setStyle("-fx-text-fill:" + color + ";-fx-font-size:22px;-fx-font-weight:bold;");
-        if ("fps".equals(registerId))      fpsLabel = l2;
-        if ("playtime".equals(registerId)) sessionPlaytimeLabel = l2;
+        if ("fps".equals(registerId)) {
+            fpsLabel = l2;
+            l2.setText(lastFps.equals("—") ? "— fps" : lastFps + " fps");
+        }
+        if ("playtime".equals(registerId)) {
+            sessionPlaytimeLabel = l2;
+            l2.setText(lastPlaytime);
+        }
         card.getChildren().addAll(l1, l2);
         return card;
     }

@@ -23,7 +23,7 @@ public class NoktaLauncher extends Application {
 
         // Uygulama ikonu — Linux/Windows/macOS
         try {
-            java.io.InputStream iconStream = getClass().getResourceAsStream("/assets/nokta_logo.png");
+            java.io.InputStream iconStream = getClass().getResourceAsStream("/assets/nokta_icon.png");
             if (iconStream != null) {
                 primaryStage.getIcons().add(new javafx.scene.image.Image(iconStream));
             }

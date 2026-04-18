@@ -585,8 +585,8 @@ public class MainWindow {
     private javafx.scene.control.Label totalPlaytimeLabel = null;
     private javafx.scene.control.Label fpsLabel = null;
     // Son bilinen değerler — sayfa geçişinde kaybolmasın
-    private String lastPlaytime        = loadLastPlaytime();
-    private String lastSessionPlaytime = "00:00:00";
+    private String lastPlaytime        = loadTotalPlaytime();
+    private String lastSessionPlaytime = loadLastPlaytime();
     private String lastFps              = "—";
 
     private static String loadLastPlaytime() {
@@ -595,7 +595,21 @@ public class MainWindow {
             if (!java.nio.file.Files.exists(f)) return "00:00:00";
             com.google.gson.JsonObject j = com.google.gson.JsonParser
                 .parseString(java.nio.file.Files.readString(f)).getAsJsonObject();
+            // formatted varsa direkt kullan
+            if (j.has("formatted")) return j.get("formatted").getAsString();
             long ms = j.has("ms") ? j.get("ms").getAsLong() : 0;
+            long h = ms / 3600000, m = (ms / 60000) % 60, s = (ms / 1000) % 60;
+            return String.format("%02d:%02d:%02d", h, m, s);
+        } catch (Exception e) { return "00:00:00"; }
+    }
+
+    private static String loadTotalPlaytime() {
+        try {
+            java.nio.file.Path f = com.nokta.launcher.utils.PathManager.getGameDir().resolve("playtime.json");
+            if (!java.nio.file.Files.exists(f)) return "00:00:00";
+            com.google.gson.JsonObject j = com.google.gson.JsonParser
+                .parseString(java.nio.file.Files.readString(f)).getAsJsonObject();
+            long ms = j.has("totalMs") ? j.get("totalMs").getAsLong() : 0;
             long h = ms / 3600000, m = (ms / 60000) % 60, s = (ms / 1000) % 60;
             return String.format("%02d:%02d:%02d", h, m, s);
         } catch (Exception e) { return "00:00:00"; }

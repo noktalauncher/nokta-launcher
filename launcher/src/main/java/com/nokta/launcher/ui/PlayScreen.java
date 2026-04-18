@@ -631,9 +631,12 @@ public class PlayScreen extends VBox {
     // ── Playtime kaydet + API ────────────────────────────────────────
     private void savePlaytime(String username, long elapsedMs) {
         try {
-            // Son oturum süresini ayrı kaydet (ana sayfada gösterilecek)
+            // Son oturum süresini kalıcı kaydet
+            long h = elapsedMs / 3600000, m = (elapsedMs / 60000) % 60, s = (elapsedMs / 1000) % 60;
+            String formatted = String.format("%02d:%02d:%02d", h, m, s);
             com.google.gson.JsonObject ls = new com.google.gson.JsonObject();
             ls.addProperty("ms", elapsedMs);
+            ls.addProperty("formatted", formatted);
             java.nio.file.Files.writeString(
                 PathManager.getGameDir().resolve("last_session.json"), ls.toString());
         } catch (Exception ignored) {}

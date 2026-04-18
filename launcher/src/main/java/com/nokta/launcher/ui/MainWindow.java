@@ -606,6 +606,10 @@ public class MainWindow {
         if (sessionPlaytimeLabel != null) sessionPlaytimeLabel.setText(t);
     }
     // MC kapanınca total playtime'ı göster
+    public void updateTotalPlaytime(String t) {
+        if (totalPlaytimeLabel != null) totalPlaytimeLabel.setText(t);
+    }
+
     public void refreshTotalPlaytime() {
         lastPlaytime = loadLastPlaytime();
         if (totalPlaytimeLabel != null) totalPlaytimeLabel.setText(lastPlaytime);
@@ -616,6 +620,25 @@ public class MainWindow {
     }
     public void registerPlaytimeLabel(javafx.scene.control.Label l) { sessionPlaytimeLabel = l; }
     public void registerFpsLabel(javafx.scene.control.Label l)      { fpsLabel = l; }
+
+    private javafx.scene.control.Label  lastPlayedStatusLabel = null;
+    private javafx.scene.control.Button lastPlayedActionBtn   = null;
+
+    public void setPlayingState(boolean playing) {
+        if (lastPlayedStatusLabel != null) {
+            lastPlayedStatusLabel.setText(playing ? "Oynanıyor 🟢" : "Son oyun: az önce");
+            lastPlayedStatusLabel.setStyle(playing
+                ? "-fx-text-fill:#44dd88;-fx-font-size:13px;"
+                : "-fx-text-fill:#888899;-fx-font-size:13px;");
+        }
+        if (lastPlayedActionBtn != null) {
+            lastPlayedActionBtn.setText(playing ? "🟢  Oynanıyor" : "▶  Tekrar Oyna");
+            lastPlayedActionBtn.setDisable(playing);
+        }
+        if (sessionPlaytimeLabel != null && playing) {
+            sessionPlaytimeLabel.setText("00:00:00");
+        }
+    }
 
 
     private String getPlayerName() {
@@ -670,9 +693,11 @@ public class MainWindow {
         Label time = new Label(lastVersion != null
             ? "Son oyun: " + formatTime(lastTime) : "Bir sürüm seç ve oynamaya başla!");
         time.setStyle("-fx-text-fill:#666688;-fx-font-size:13px;");
+        lastPlayedStatusLabel = time;
         info.getChildren().addAll(title, time);
 
         Button playBtn = new Button(lastVersion != null ? "▶  Tekrar Oyna" : "▶  Oyna");
+        lastPlayedActionBtn = playBtn;
         playBtn.setStyle(
             "-fx-background-color:linear-gradient(to right,#6c63ff,#3b82f6);" +
             "-fx-text-fill:white;-fx-font-size:14px;-fx-font-weight:bold;" +

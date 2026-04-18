@@ -432,9 +432,12 @@ public class PlayScreen extends VBox {
         setStatus("🚀  Başlatılıyor...", "#3b82f6");
         logBox.getChildren().clear();
         mcLogLines.clear();
-        // Chat log korunuyor — temizlenmiyor
         logPane.setVisible(true);
         logPane.setManaged(true);
+        // Ana sayfa kartlarını güncelle
+        if (MainWindow.instance != null) {
+            MainWindow.instance.setPlayingState(true);
+        }
 
         stylePlayBtn(actionBtn, true);
         actionBtn.setOnAction(ev -> {
@@ -467,20 +470,38 @@ public class PlayScreen extends VBox {
                 final long[] sessionStart = {System.currentTimeMillis()};
                 java.util.concurrent.ScheduledExecutorService ticker =
                     java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+                // Başlangıçtaki toplam süreyi oku
+                final long[] existingMs = {0};
+                try {
+                    java.nio.file.Path ptf = PathManager.getGameDir().resolve("playtime.json");
+                    if (java.nio.file.Files.exists(ptf)) {
+                        com.google.gson.JsonObject pj = com.google.gson.JsonParser
+                            .parseString(java.nio.file.Files.readString(ptf)).getAsJsonObject();
+                        existingMs[0] = pj.has("totalMs") ? pj.get("totalMs").getAsLong() : 0;
+                    }
+                } catch (Exception ignored) {}
+
                 ticker.scheduleAtFixedRate(() -> {
                     long elapsed = System.currentTimeMillis() - sessionStart[0];
-                    String t = String.format("%02d:%02d:%02d",
+                    // Session
+                    String sess = String.format("%02d:%02d:%02d",
                         elapsed / 3600000, (elapsed / 60000) % 60, (elapsed / 1000) % 60);
-                    // HUD için dosyaya yaz
+                    // Total = mevcut + bu oturum
+                    long totalMs = existingMs[0] + elapsed;
+                    String total = String.format("%02d:%02d:%02d",
+                        totalMs / 3600000, (totalMs / 60000) % 60, (totalMs / 1000) % 60);
+                    // HUD için
                     try {
                         java.nio.file.Files.writeString(
-                            PathManager.getGameDir().resolve("session_time.txt"), t);
+                            PathManager.getGameDir().resolve("session_time.txt"), sess);
                     } catch (Exception ignored) {}
                     Platform.runLater(() -> {
-                        if (MainWindow.instance != null)
-                            MainWindow.instance.updateSessionPlaytime(t);
+                        if (MainWindow.instance != null) {
+                            MainWindow.instance.updateSessionPlaytime(sess);
+                            MainWindow.instance.updateTotalPlaytime(total);
+                        }
                     });
-                }, 5, 5, java.util.concurrent.TimeUnit.SECONDS);
+                }, 1, 1, java.util.concurrent.TimeUnit.SECONDS);
 
                 // Log okuyucu
                 new Thread(() -> {
@@ -577,8 +598,10 @@ public class PlayScreen extends VBox {
                         addLog("⏹ Minecraft kapatıldı. Exit: " + exitCode);
                     }
                     if (discordRPC != null) discordRPC.setInLauncher();
-                    // Total playtime'ı launcher'da göster
-                    if (MainWindow.instance != null) MainWindow.instance.refreshTotalPlaytime();
+                    if (MainWindow.instance != null) {
+                        MainWindow.instance.setPlayingState(false);
+                        MainWindow.instance.refreshTotalPlaytime();
+                    }
                 });
 
             } catch (Exception ex) {

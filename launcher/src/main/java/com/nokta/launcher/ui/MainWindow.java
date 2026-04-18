@@ -447,7 +447,8 @@ public class MainWindow {
 
         HBox statsRow = new HBox(16);
         statsRow.getChildren().addAll(
-            statCard("🎮", "Toplam Oyun",  "0 dk",       "#6c63ff", "playtime"),
+            statCard("🎮", "Toplam Oyun",  "00:00:00",   "#6c63ff", "totaltime"),
+            statCard("⏱", "Son Oynama",  "00:00:00",   "#10b981", "playtime"),
             statCard("🧩", "Yüklü Mod",    modCountStr,  "#3b82f6"),
             statCard("📦", "Sürümler",     versionCount, "#10b981"),
             statCard("⚡", "Son FPS",      "— fps",      "#f59e0b", "fps")
@@ -581,10 +582,12 @@ public class MainWindow {
 
     // ── Canlı MC istatistikleri ───────────────────────────────────────────
     private javafx.scene.control.Label sessionPlaytimeLabel = null;
+    private javafx.scene.control.Label totalPlaytimeLabel = null;
     private javafx.scene.control.Label fpsLabel = null;
     // Son bilinen değerler — sayfa geçişinde kaybolmasın
-    private String lastPlaytime = loadLastPlaytime();
-    private String lastFps      = "—";
+    private String lastPlaytime        = loadLastPlaytime();
+    private String lastSessionPlaytime = "00:00:00";
+    private String lastFps              = "—";
 
     private static String loadLastPlaytime() {
         try {
@@ -599,13 +602,13 @@ public class MainWindow {
     }
 
     public void updateSessionPlaytime(String t) {
-        lastPlaytime = t;
+        lastSessionPlaytime = t;
         if (sessionPlaytimeLabel != null) sessionPlaytimeLabel.setText(t);
     }
     // MC kapanınca total playtime'ı göster
     public void refreshTotalPlaytime() {
         lastPlaytime = loadLastPlaytime();
-        if (sessionPlaytimeLabel != null) sessionPlaytimeLabel.setText(lastPlaytime);
+        if (totalPlaytimeLabel != null) totalPlaytimeLabel.setText(lastPlaytime);
     }
     public void updateFps(String fps) {
         lastFps = fps;
@@ -771,6 +774,10 @@ public class MainWindow {
         }
         if ("playtime".equals(registerId)) {
             sessionPlaytimeLabel = l2;
+            l2.setText(lastSessionPlaytime);
+        }
+        if ("totaltime".equals(registerId)) {
+            totalPlaytimeLabel = l2;
             l2.setText(lastPlaytime);
         }
         card.getChildren().addAll(l1, l2);

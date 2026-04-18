@@ -432,6 +432,7 @@ public class PlayScreen extends VBox {
         setStatus("🚀  Başlatılıyor...", "#3b82f6");
         logBox.getChildren().clear();
         mcLogLines.clear();
+        // Chat log korunuyor — temizlenmiyor
         logPane.setVisible(true);
         logPane.setManaged(true);
 
@@ -449,6 +450,11 @@ public class PlayScreen extends VBox {
                 Process process = gameLauncher.launch(cfg);
                 minecraftProcess = process;
 
+                // Session sayacını sıfırla
+                Platform.runLater(() -> {
+                    if (MainWindow.instance != null)
+                        MainWindow.instance.updateSessionPlaytime("00:00:00");
+                });
                 // Discord: MC açıldı
                 Platform.runLater(() -> {
                     if (discordRPC != null)

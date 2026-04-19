@@ -637,8 +637,10 @@ public class MainWindow {
 
     private javafx.scene.control.Label  lastPlayedStatusLabel = null;
     private javafx.scene.control.Button lastPlayedActionBtn   = null;
+    private boolean isCurrentlyPlaying = false;
 
     public void setPlayingState(boolean playing) {
+        isCurrentlyPlaying = playing;
         if (lastPlayedStatusLabel != null) {
             lastPlayedStatusLabel.setText(playing ? "Oynanıyor 🟢" : "Son oyun: az önce");
             lastPlayedStatusLabel.setStyle(playing
@@ -708,10 +710,19 @@ public class MainWindow {
             ? "Son oyun: " + formatTime(lastTime) : "Bir sürüm seç ve oynamaya başla!");
         time.setStyle("-fx-text-fill:#666688;-fx-font-size:13px;");
         lastPlayedStatusLabel = time;
+        // MC zaten çalışıyorsa hemen durumu güncelle
+        if (isCurrentlyPlaying) {
+            time.setText("Oynanıyor 🟢");
+            time.setStyle("-fx-text-fill:#44dd88;-fx-font-size:13px;");
+        }
         info.getChildren().addAll(title, time);
 
         Button playBtn = new Button(lastVersion != null ? "▶  Tekrar Oyna" : "▶  Oyna");
         lastPlayedActionBtn = playBtn;
+        if (isCurrentlyPlaying) {
+            playBtn.setText("🟢  Oynanıyor");
+            playBtn.setDisable(true);
+        }
         playBtn.setStyle(
             "-fx-background-color:linear-gradient(to right,#6c63ff,#3b82f6);" +
             "-fx-text-fill:white;-fx-font-size:14px;-fx-font-weight:bold;" +

@@ -33,11 +33,11 @@ public class ChatScreenMixin {
             2, self.height - 44, self.width / 3, 16,
             net.minecraft.network.chat.Component.literal("Ara..."));
         searchBox.setMaxLength(256);
-        searchBox.setHint(net.minecraft.network.chat.Component.literal("§7Chat ara..."));
+        // hint Fabric 1.21.4'te desteklenmiyor
         searchBox.setBordered(true);
         searchBox.setVisible(true);
         searchBox.setTextColor(0xFFFFFF);
-        searchBox.setHintTextColor(0x888888);
+        // setHintTextColor Fabric 1.21.4'te desteklenmiyor
     }
 
     @Inject(method = "render", at = @At("TAIL"))

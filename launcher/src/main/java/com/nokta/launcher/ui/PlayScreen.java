@@ -495,6 +495,18 @@ public class PlayScreen extends VBox {
                         java.nio.file.Files.writeString(
                             PathManager.getGameDir().resolve("session_time.txt"), sess);
                     } catch (Exception ignored) {}
+                    // FPS dosyadan oku
+                    try {
+                        java.nio.file.Path fpsFile = PathManager.getGameDir().resolve("fps.txt");
+                        if (java.nio.file.Files.exists(fpsFile)) {
+                            String fpsVal = java.nio.file.Files.readString(fpsFile).trim();
+                            lastFps = fpsVal;
+                            Platform.runLater(() -> {
+                                if (MainWindow.instance != null)
+                                    MainWindow.instance.updateFps(fpsVal);
+                            });
+                        }
+                    } catch (Exception ignored) {}
                     Platform.runLater(() -> {
                         if (MainWindow.instance != null) {
                             MainWindow.instance.updateSessionPlaytime(sess);

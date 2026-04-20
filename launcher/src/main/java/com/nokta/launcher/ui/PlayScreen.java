@@ -732,6 +732,19 @@ public class PlayScreen extends VBox {
 
     public static Process getMinecraftProcess() { return minecraftProcess; }
 
+    public void setRunningState(boolean running) {
+        if (running) {
+            stylePlayBtn(actionBtn, true);
+            actionBtn.setOnAction(ev -> {
+                if (minecraftProcess != null && minecraftProcess.isAlive())
+                    minecraftProcess.destroyForcibly();
+            });
+            // Ana sayfa kartlarını güncelle
+            if (MainWindow.instance != null)
+                MainWindow.instance.setPlayingState(true);
+        }
+    }
+
     private String findJava() {
         String javaHome = System.getenv("JAVA_HOME");
         if (javaHome != null && !javaHome.isEmpty()) {

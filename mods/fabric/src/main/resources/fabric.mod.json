@@ -3,7 +3,7 @@
   "id": "nokta-overlay-mod",
   "version": "1.0.0",
   "name": "NokTa Overlay",
-  "description": "CraftRival sunucusunu sabitler ve \u00f6zel g\u00f6r\u00fcn\u00fcm ekler.",
+  "description": "Nokta Client — HUD, screenshot copy, chat features",
   "authors": [
     "NokTa"
   ],
@@ -22,5 +22,6 @@
     "fabricloader": ">=0.14.0",
     "minecraft": ">=1.16",
     "java": ">=17"
-  }
+  },
+  "icon": "nokta_icon.png"
 }

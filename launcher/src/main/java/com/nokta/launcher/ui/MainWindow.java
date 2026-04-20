@@ -390,7 +390,15 @@ public class MainWindow {
     }
 
     public void showHome()         { contentPane.getChildren().setAll(wrapScroll(buildHomeContent())); }
-    private void showPlay()        { contentPane.getChildren().setAll(wrapScroll(new PlayScreen())); }
+    private void showPlay() {
+        PlayScreen ps = new PlayScreen();
+        contentPane.getChildren().setAll(wrapScroll(ps));
+        // MC çalışıyorsa oyna butonunu hemen devre dışı bırak
+        if (com.nokta.launcher.ui.PlayScreen.getMinecraftProcess() != null &&
+            com.nokta.launcher.ui.PlayScreen.getMinecraftProcess().isAlive()) {
+            ps.setRunningState(true);
+        }
+    }
     private void showMods()        { contentPane.getChildren().setAll(wrapScroll(new ModsScreen())); }
     private void showPerformance() { contentPane.getChildren().setAll(wrapScroll(new PerformanceScreen())); }
     private void showAccount()     { contentPane.getChildren().setAll(wrapScroll(new AccountScreen())); }

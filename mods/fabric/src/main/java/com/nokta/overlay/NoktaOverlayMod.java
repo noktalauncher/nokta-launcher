@@ -115,40 +115,6 @@ public class NoktaOverlayMod implements ClientModInitializer {
         // ── HUD render ───────────────────────────────────────────────
         HudRenderCallback.EVENT.register(renderer);
 
-        // ── Chat arama — ScreenEvents ile ──────────────────────────────
-        // Her chat açılışında arama kutusu ekle
-        final net.minecraft.client.gui.components.EditBox[] searchBox = {null};
-        final String[] lastQuery = {""};
-
-        net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> {
-            if (!(screen instanceof net.minecraft.client.gui.screens.ChatScreen)) return;
-
-            // Arama kutusu oluştur — chat input'un üstünde
-            searchBox[0] = new net.minecraft.client.gui.components.EditBox(
-                mc.font, 2, h - 44, w / 3, 14,
-                net.minecraft.network.chat.Component.literal(""));
-            searchBox[0].setMaxLength(100);
-            searchBox[0].setBordered(true);
-            searchBox[0].setVisible(true);
-            searchBox[0].setTextColor(0xFFFFFF);
-
-            // Render event
-            net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register(
-                (scr, ctx, mx, my, delta) -> {
-                    if (searchBox[0] == null) return;
-                    ctx.fill(0, h - 46, w / 3 + 4, h - 28, 0xaa000000);
-                    ctx.fill(0, h - 47, w / 3 + 4, h - 46, 0xff6c63ff);
-                    ctx.drawString(mc.font, "§7Ara: ", 4, h - 43, 0xaaaacc, false);
-                    searchBox[0].render(ctx, mx, my, delta);
-                });
-
-            // Mouse tıklama
-            net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents.afterMouseClick(screen).register(
-                (scr, mx, my, btn) -> {
-                    if (searchBox[0] != null) searchBox[0].mouseClicked(mx, my, btn);
-                });
-        });
-
         // ── Chat açılınca HUD edit modu + T fix ─────────────────────
         final boolean[] chatWasOpen = {false};
         final boolean[] cleared     = {false};

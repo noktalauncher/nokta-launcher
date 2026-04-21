@@ -126,6 +126,14 @@ public class DiscordRPC {
                         new Thread(() -> {
                             try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
                             connect();
+                            // Bağlantı sonrası son state'i geri yükle
+                            new Thread(() -> {
+                                try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                                if (currentState == RpcState.LAUNCHER) setInLauncher();
+                                else if (currentState == RpcState.PLAYING || currentState == RpcState.ON_SERVER
+                                      || currentState == RpcState.SINGLEPLAYER)
+                                    setPlayingMinecraft(currentMcVersion, currentLoader);
+                            }, "discord-state-restore").start();
                         }, "discord-reconnect").start();
                     }
                     break;

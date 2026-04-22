@@ -90,14 +90,6 @@ public class NokHud {
 
         // Edit mode: kenar çizgisi
         if (editMode) {
-            // Arama kutusu — HUD altında, chat'e dokunmaz
-            int sqY = py + getBoxH(cfg) + 4;
-            int sqW = 200;
-            ctx.fill(px, sqY, px + sqW, sqY + 16, 0x88000000);
-            ctx.fill(px, sqY, px + sqW, sqY + 1, 0xcc6c63ff);
-            String display = searchQuery.isEmpty() ? "§7Chat ara..." : "§f" + searchQuery;
-            ctx.drawString(mc.font, "§b🔍 §r" + display, px + 4, sqY + 4, 0xffffff, false);
-
             ctx.fill(px,          py,          px + boxW,     py + 1,        0xcc6c63ff);
             ctx.fill(px,          py + boxH-1, px + boxW,     py + boxH,     0xcc6c63ff);
             ctx.fill(px,          py,          px + 1,        py + boxH,     0xcc6c63ff);

@@ -125,12 +125,15 @@ public class NoktaOverlayMod implements ClientModInitializer {
             // Chat yeni açıldı
             if (chatOpen && !chatWasOpen[0]) {
                 cleared[0] = false;
-                OverlayRenderer.hud.setEditMode(true);  // HUD edit modu aç
+                OverlayRenderer.searchVisible = true;
+                OverlayRenderer.hud.setEditMode(true);
             }
             // Chat kapandı
             if (!chatOpen && chatWasOpen[0]) {
-                OverlayRenderer.hud.setEditMode(false); // HUD edit modu kapat
-                OverlayRenderer.hud.onMouseRelease();   // drag/resize bitir
+                OverlayRenderer.hud.setEditMode(false);
+                OverlayRenderer.hud.onMouseRelease();
+                OverlayRenderer.searchVisible = false;
+                OverlayRenderer.searchQuery = "";
             }
 
             // T harfi fix — input kutusunu temizle

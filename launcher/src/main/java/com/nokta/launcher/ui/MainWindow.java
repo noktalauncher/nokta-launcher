@@ -459,7 +459,7 @@ public class MainWindow {
             statCard("⏱", "Son Oynama",  "00:00:00",   "#10b981", "playtime"),
             statCard("🧩", "Yüklü Mod",    modCountStr,  "#3b82f6"),
             statCard("📦", "Sürümler",     versionCount, "#10b981"),
-            statCard("⚡", "Son FPS",      "— fps",      "#f59e0b", "fps")
+            statCard("⚡", "FPS",          "— fps",      "#f59e0b", "fps")
         );
 
         Label newsT = new Label("📰  Son Güncellemeler");

@@ -32,6 +32,10 @@ public class OverlayRenderer implements HudRenderCallback {
     // HUD
     public static final NokHud hud = new NokHud();
 
+    // Chat arama
+    public static String  searchQuery   = "";
+    public static boolean searchVisible = false;
+
     private long   lastRead   = 0;
     private String lastServer = "";
 
@@ -47,6 +51,17 @@ public class OverlayRenderer implements HudRenderCallback {
 
         long now = System.currentTimeMillis();
         if (now - lastRead > 1000) { lastRead = now; readFiles(); }
+
+        // ── Chat arama ───────────────────────────────────────────────
+        if (searchVisible) {
+            int sw = mc.getWindow().getGuiScaledWidth();
+            int sh = mc.getWindow().getGuiScaledHeight();
+            int sqY = sh - 40;
+            ctx.fill(2, sqY, sw / 2, sqY + 14, 0x55000000);
+            ctx.fill(2, sqY, sw / 2, sqY + 1, 0xaa6c63ff);
+            String disp = searchQuery.isEmpty() ? "\u00a77Chat ara..." : "\u00a7f" + searchQuery;
+            ctx.drawString(mc.font, "\u00a7b/ \u00a7r" + disp, 6, sqY + 3, 0xffffff, false);
+        }
 
         // ── Nokta HUD ────────────────────────────────────────────────
         hud.render(ctx, mc);

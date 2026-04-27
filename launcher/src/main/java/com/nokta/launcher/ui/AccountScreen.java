@@ -124,10 +124,6 @@ public class AccountScreen extends VBox {
                 switchBtn.setOnAction(e -> {
                     authManager.switchAccount(acc);
                     refreshAccountDisplay();
-                    // Launcher config güncelle
-                    com.nokta.launcher.core.NokTaConfig cfg = com.nokta.launcher.core.NokTaConfig.load();
-                    cfg.username = acc.username;
-                    cfg.save();
                 });
                 btns.getChildren().add(switchBtn);
             }

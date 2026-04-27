@@ -695,21 +695,20 @@ public class MainWindow {
             if (!java.nio.file.Files.exists(accountsFile)) return "Oyuncu";
             JsonObject j = JsonParser.parseString(
                 Files.readString(accountsFile)).getAsJsonObject();
-            // Düz obje formatı: {"username":"..."}
-            if (j.has("username")) return j.get("username").getAsString();
-            if (j.has("activeAccount")) {
-                String active = j.get("activeAccount").getAsString();
-                if (j.has("accounts")) {
-                    for (JsonElement el : j.getAsJsonArray("accounts")) {
-                        JsonObject acc = el.getAsJsonObject();
-                        if (acc.has("username") && active.equals(
-                            acc.has("uuid") ? acc.get("uuid").getAsString() : ""))
-                            return acc.get("username").getAsString();
-                        if (acc.has("username"))
-                            return acc.get("username").getAsString();
-                    }
+            // Yeni format: {"active":"uuid", "accounts":[...]}
+            if (j.has("accounts") && j.has("active")) {
+                String activeUuid = j.get("active").getAsString();
+                for (JsonElement el : j.getAsJsonArray("accounts")) {
+                    JsonObject acc = el.getAsJsonObject();
+                    if (acc.has("uuid") && acc.get("uuid").getAsString().equals(activeUuid))
+                        return acc.get("username").getAsString();
                 }
+                // Aktif bulunamadıysa ilk hesabı döndür
+                JsonObject first = j.getAsJsonArray("accounts").get(0).getAsJsonObject();
+                if (first.has("username")) return first.get("username").getAsString();
             }
+            // Eski format: {"username":"..."}
+            if (j.has("username")) return j.get("username").getAsString();
         } catch (Exception ignored) {}
         return "Oyuncu";
     }

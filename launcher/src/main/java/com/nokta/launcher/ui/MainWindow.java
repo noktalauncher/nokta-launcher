@@ -636,6 +636,28 @@ public class MainWindow {
         lastPlaytime = loadLastPlaytime();
         if (totalPlaytimeLabel != null) totalPlaytimeLabel.setText(lastPlaytime);
     }
+    public void updateSidebar(String playerName) {
+        if (sidebarNameLabel != null)
+            sidebarNameLabel.setText(playerName);
+        if (sidebarAvatarPane != null) {
+            new Thread(() -> {
+                try {
+                    javafx.scene.image.Image img = new javafx.scene.image.Image(
+                        "https://minotar.net/helm/" + playerName + "/80", 80, 80, false, true);
+                    if (!img.isError()) {
+                        javafx.scene.image.ImageView iv = new javafx.scene.image.ImageView(img);
+                        iv.setFitWidth(80); iv.setFitHeight(80);
+                        javafx.scene.shape.Rectangle clip = new javafx.scene.shape.Rectangle(80,80);
+                        clip.setArcWidth(14); clip.setArcHeight(14);
+                        iv.setClip(clip);
+                        javafx.application.Platform.runLater(() ->
+                            sidebarAvatarPane.getChildren().setAll(iv));
+                    }
+                } catch (Exception ignored) {}
+            }, "sidebar-skin").start();
+        }
+    }
+
     public void updateFps(String fps) {
         lastFps = fps;
         if (fpsLabel != null) fpsLabel.setText(fps + " fps");

@@ -124,6 +124,8 @@ public class AccountScreen extends VBox {
                 switchBtn.setOnAction(e -> {
                     authManager.switchAccount(acc);
                     refreshAccountDisplay();
+                    if (MainWindow.instance != null)
+                        MainWindow.instance.updateSidebar(acc.username);
                 });
                 btns.getChildren().add(switchBtn);
             }

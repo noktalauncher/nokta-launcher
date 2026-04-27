@@ -252,6 +252,7 @@ public class MainWindow {
             String pName = getPlayerName();
             javafx.application.Platform.runLater(() -> {
                 name.setText(pName);
+                sidebarNameLabel = name;
                 initBig.setText(pName.isEmpty() ? "?" : pName.substring(0,1).toUpperCase());
             });
             try {

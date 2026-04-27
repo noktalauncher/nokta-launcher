@@ -76,6 +76,31 @@ public class DiscordRPC {
     }
 
     // ── Bağlantı ────────────────────────────────────────────────────
+    private java.util.concurrent.ScheduledExecutorService reconnectScheduler =
+        java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "discord-reconnect");
+            t.setDaemon(true);
+            return t;
+        });
+
+    public void startBackgroundReconnect() {
+        reconnectScheduler.scheduleAtFixedRate(() -> {
+            if (!connected) {
+                connect();
+                if (connected) {
+                    // Bağlantı sonrası son state'i geri yükle
+                    try { Thread.sleep(1000); } catch (Exception ignored) {}
+                    if (currentState == RpcState.PLAYING ||
+                        currentState == RpcState.ON_SERVER ||
+                        currentState == RpcState.SINGLEPLAYER)
+                        setPlayingMinecraft(currentMcVersion, currentLoader);
+                    else
+                        setInLauncher();
+                }
+            }
+        }, 5, 8, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
     public void connect() {
         new Thread(() -> {
             for (int i = 0; i < 10; i++) {

@@ -253,6 +253,7 @@ public class MainWindow {
             javafx.application.Platform.runLater(() -> {
                 name.setText(pName);
                 sidebarNameLabel = name;
+                sidebarAvatarPane = logoStack;
                 initBig.setText(pName.isEmpty() ? "?" : pName.substring(0,1).toUpperCase());
             });
             try {
@@ -264,7 +265,10 @@ public class MainWindow {
                     javafx.scene.shape.Rectangle clip = new javafx.scene.shape.Rectangle(80, 80);
                     clip.setArcWidth(14); clip.setArcHeight(14);
                     iv.setClip(clip);
-                    javafx.application.Platform.runLater(() -> logoStack.getChildren().setAll(iv));
+                    javafx.application.Platform.runLater(() -> {
+                        logoStack.getChildren().setAll(iv);
+                        sidebarAvatarPane = logoStack;
+                    });
                 }
             } catch (Exception ignored) {}
         }, "skin-loader-big").start();

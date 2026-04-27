@@ -324,8 +324,8 @@ public class PlayScreen extends VBox {
                 addLog("📦 Sürüm indiriliyor: " + versionRef.get());
                 versionManager.downloadVersion(versionRef.get(), (msg, pct) ->
                     Platform.runLater(() -> {
-                        progressBar.setProgress(pct / 250.0);
-                        progressLabel.setText(msg);
+                        Platform.runLater(() -> progressBar.setProgress(pct / 250.0));
+                        Platform.runLater(() -> progressLabel.setText(msg));
                         if (pct % 10 == 0) addLog(pct + "% " + msg);
                     })
                 );
@@ -360,8 +360,8 @@ public class PlayScreen extends VBox {
                 addLog("🖼 Assets indiriliyor...");
                 assetDownloader.downloadAssets(versionRef.get(), (msg, pct) ->
                     Platform.runLater(() -> {
-                        progressBar.setProgress(0.4 + pct / 250.0);
-                        progressLabel.setText(msg);
+                        Platform.runLater(() -> progressBar.setProgress(0.4 + pct / 250.0));
+                        Platform.runLater(() -> progressLabel.setText(msg));
                         if (pct % 20 == 0) addLog(pct + "% " + msg);
                     })
                 );
@@ -370,8 +370,8 @@ public class PlayScreen extends VBox {
                 addLog("🔧 Natives çıkartılıyor...");
                 nativesManager.extractNatives(versionRef.get(), (msg, pct) ->
                     Platform.runLater(() -> {
-                        progressBar.setProgress(0.8 + pct / 500.0);
-                        progressLabel.setText(msg);
+                        Platform.runLater(() -> progressBar.setProgress(0.8 + pct / 500.0));
+                        Platform.runLater(() -> progressLabel.setText(msg));
                     })
                 );
 
@@ -385,7 +385,7 @@ public class PlayScreen extends VBox {
 
             } catch (Exception ex) {
                 Platform.runLater(() -> {
-                    setStatus("❌  Hata: " + ex.getMessage(), "#f04040");
+                    Platform.runLater(() -> setStatus("❌  Hata: " + ex.getMessage(), "#f04040"));
                     installBtn.setDisable(false);
                     actionBtn.setDisable(false);
                     addLog("❌ HATA: " + ex.getMessage());

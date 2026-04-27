@@ -28,6 +28,8 @@ public class MainWindow {
     public static javafx.scene.image.ImageView bgView = null;
     private double xOffset = 0, yOffset = 0;
     private StackPane contentPane;
+    private Label     sidebarNameLabel  = null;
+    private StackPane sidebarAvatarPane = null;
     private final boolean[] isMaximized = {false};
     private Button[] navBtns;
 

@@ -59,7 +59,8 @@ public class AccountScreen extends VBox {
             HBox card = new HBox(14);
             card.setPadding(new Insets(14, 20, 14, 20));
             card.setAlignment(Pos.CENTER_LEFT);
-            boolean isActive = acc == authManager.getCurrentAccount();
+            AuthManager.Account current = authManager.getCurrentAccount();
+            boolean isActive = current != null && current.uuid.equals(acc.uuid);
             card.setStyle(
                 "-fx-background-color:" + (isActive ? "#6c63ff22" : "#00000044") + ";" +
                 "-fx-background-radius:14;" +

@@ -24,7 +24,8 @@ public class AuthManager {
         .build();
     private final Gson  gson     = new Gson();
     private final Path  saveFile;
-    private Account     currentAccount;
+    private Account        currentAccount;
+    private java.util.List<Account> accounts = new java.util.ArrayList<>();
 
     public AuthManager(Path gameDir) {
         this.saveFile = gameDir.resolve("accounts.json");
@@ -35,9 +36,29 @@ public class AuthManager {
     public Account loginOffline(String username) {
         String uuid = UUID.nameUUIDFromBytes(
             ("OfflinePlayer:" + username).getBytes()).toString();
-        currentAccount = new Account(username, uuid, "offline", "0", false);
+        Account a = new Account(username, uuid, "offline", "0", false);
+        // Aynı UUID varsa güncelle, yoksa ekle
+        accounts.removeIf(x -> x.uuid.equals(uuid));
+        accounts.add(a);
+        currentAccount = a;
         saveAccounts();
         return currentAccount;
+    }
+
+    // Hesap listesi
+    public java.util.List<Account> getAccounts() { return accounts; }
+
+    // Hesap seç
+    public void switchAccount(Account a) {
+        currentAccount = a;
+        saveAccounts();
+    }
+
+    // Hesap sil
+    public void removeAccount(Account a) {
+        accounts.remove(a);
+        if (currentAccount == a) currentAccount = accounts.isEmpty() ? null : accounts.get(0);
+        saveAccounts();
     }
 
     // ── Microsoft — otomatik kod yakalama ───────────────────────────
@@ -115,7 +136,10 @@ public class AuthManager {
             cb.update("Profil yükleniyor...", 90);
             String[] profile = getMinecraftProfile(mcToken);
 
-            currentAccount = new Account(profile[0], profile[1], "msa", mcToken, true);
+            Account a = new Account(profile[0], profile[1], "msa", mcToken, true);
+            accounts.removeIf(x -> x.uuid.equals(a.uuid));
+            accounts.add(a);
+            currentAccount = a;
             saveAccounts();
 
             cb.update("Giriş başarılı! ✅", 100);
@@ -151,30 +175,54 @@ public class AuthManager {
     // ── Kayıt/Yükleme ────────────────────────────────────────────────
     private void saveAccounts() {
         try {
-            JsonObject obj = new JsonObject();
-            if (currentAccount != null) {
-                obj.addProperty("username",    currentAccount.username);
-                obj.addProperty("uuid",        currentAccount.uuid);
-                obj.addProperty("type",        currentAccount.type);
-                obj.addProperty("accessToken", currentAccount.accessToken);
-                obj.addProperty("microsoft",   currentAccount.microsoft);
+            JsonObject root = new JsonObject();
+            // Aktif hesap
+            if (currentAccount != null)
+                root.addProperty("active", currentAccount.uuid);
+            // Tüm hesaplar
+            JsonArray arr = new JsonArray();
+            for (Account a : accounts) {
+                JsonObject o = new JsonObject();
+                o.addProperty("username",    a.username);
+                o.addProperty("uuid",        a.uuid);
+                o.addProperty("type",        a.type);
+                o.addProperty("accessToken", a.accessToken);
+                o.addProperty("microsoft",   a.microsoft);
+                arr.add(o);
             }
-            Files.writeString(saveFile, gson.toJson(obj));
+            root.add("accounts", arr);
+            Files.writeString(saveFile, gson.toJson(root));
         } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void loadAccounts() {
         try {
             if (!Files.exists(saveFile)) return;
-            JsonObject obj = JsonParser.parseString(
-                Files.readString(saveFile)).getAsJsonObject();
-            if (obj.has("username"))
-                currentAccount = new Account(
-                    obj.get("username").getAsString(),
-                    obj.get("uuid").getAsString(),
-                    obj.get("type").getAsString(),
-                    obj.get("accessToken").getAsString(),
-                    obj.get("microsoft").getAsBoolean());
+            JsonObject root = JsonParser.parseString(Files.readString(saveFile)).getAsJsonObject();
+            // Yeni format
+            if (root.has("accounts")) {
+                String activeUuid = root.has("active") ? root.get("active").getAsString() : null;
+                for (JsonElement el : root.getAsJsonArray("accounts")) {
+                    JsonObject o = el.getAsJsonObject();
+                    Account a = new Account(
+                        o.get("username").getAsString(), o.get("uuid").getAsString(),
+                        o.get("type").getAsString(),     o.get("accessToken").getAsString(),
+                        o.get("microsoft").getAsBoolean());
+                    accounts.add(a);
+                    if (a.uuid.equals(activeUuid)) currentAccount = a;
+                }
+                if (currentAccount == null && !accounts.isEmpty())
+                    currentAccount = accounts.get(0);
+            } else if (root.has("username")) {
+                // Eski format — migrate
+                Account a = new Account(
+                    root.get("username").getAsString(), root.get("uuid").getAsString(),
+                    root.get("type").getAsString(),     root.get("accessToken").getAsString(),
+                    root.get("microsoft").getAsBoolean());
+                accounts.add(a);
+                currentAccount = a;
+                saveAccounts();
+            }
         } catch (Exception e) { e.printStackTrace(); }
     }
 

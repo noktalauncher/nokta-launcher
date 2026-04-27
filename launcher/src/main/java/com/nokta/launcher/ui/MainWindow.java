@@ -691,24 +691,10 @@ public class MainWindow {
 
     private String getPlayerName() {
         try {
-            java.nio.file.Path accountsFile = PathManager.getGameDir().resolve("accounts.json");
-            if (!java.nio.file.Files.exists(accountsFile)) return "Oyuncu";
-            JsonObject j = JsonParser.parseString(
-                Files.readString(accountsFile)).getAsJsonObject();
-            // Yeni format: {"active":"uuid", "accounts":[...]}
-            if (j.has("accounts") && j.has("active")) {
-                String activeUuid = j.get("active").getAsString();
-                for (JsonElement el : j.getAsJsonArray("accounts")) {
-                    JsonObject acc = el.getAsJsonObject();
-                    if (acc.has("uuid") && acc.get("uuid").getAsString().equals(activeUuid))
-                        return acc.get("username").getAsString();
-                }
-                // Aktif bulunamadıysa ilk hesabı döndür
-                JsonObject first = j.getAsJsonArray("accounts").get(0).getAsJsonObject();
-                if (first.has("username")) return first.get("username").getAsString();
-            }
-            // Eski format: {"username":"..."}
-            if (j.has("username")) return j.get("username").getAsString();
+            com.nokta.launcher.core.AuthManager auth =
+                new com.nokta.launcher.core.AuthManager(PathManager.getGameDir());
+            if (auth.getCurrentAccount() != null)
+                return auth.getCurrentAccount().username;
         } catch (Exception ignored) {}
         return "Oyuncu";
     }

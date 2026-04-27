@@ -197,39 +197,19 @@ public class AccountScreen extends VBox {
 
     private VBox buildMicrosoftTab() {
         VBox box = new VBox(16);
-
         Label info = new Label(
-            "Microsoft hesabınla giriş yapmak için aşağıdaki butona tıkla.\n" +
-            "Tarayıcıda giriş yaptıktan sonra, yönlendirilen URL'yi buraya yapıştır."
+            "Microsoft hesabınla giriş yapmak için butona tıkla.\n" +
+            "Tarayıcıda giriş yaptıktan sonra otomatik olarak tamamlanır."
         );
         info.setStyle("-fx-text-fill:#666688;-fx-font-size:12px;");
         info.setWrapText(true);
 
-        Button openBrowserBtn = new Button("🌐  Microsoft Giriş Sayfasını Aç");
+        Button openBrowserBtn = new Button("🌐  Microsoft ile Giriş Yap");
         openBrowserBtn.setMaxWidth(Double.MAX_VALUE);
         openBrowserBtn.setStyle(
             "-fx-background-color:linear-gradient(to right,#0078d4,#106ebe);" +
-            "-fx-text-fill:white;" +
-            "-fx-font-size:13px;" +
-            "-fx-font-weight:bold;" +
-            "-fx-background-radius:10;" +
-            "-fx-padding:12 24 12 24;" +
-            "-fx-cursor:hand;"
-        );
-
-        Label urlLabel = new Label("Giriş yaptıktan sonra tarayıcının adres çubuğundaki URL'yi yapıştır:");
-        urlLabel.setStyle("-fx-text-fill:#aaaacc;-fx-font-size:12px;");
-
-        TextField urlField = new TextField();
-        urlField.setPromptText("https://login.live.com/oauth20_desktop.srf?code=...");
-        urlField.setStyle(
-            "-fx-background-color:#ffffff11;" +
-            "-fx-text-fill:#ffffff;" +
-            "-fx-border-color:#3a3a60;" +
-            "-fx-border-radius:8;" +
-            "-fx-background-radius:8;" +
-            "-fx-font-size:12px;" +
-            "-fx-padding:10 14 10 14;"
+            "-fx-text-fill:white;-fx-font-size:13px;-fx-font-weight:bold;" +
+            "-fx-background-radius:10;-fx-padding:12 24 12 24;-fx-cursor:hand;"
         );
 
         ProgressBar msProgress = new ProgressBar(0);
@@ -239,75 +219,41 @@ public class AccountScreen extends VBox {
 
         Label msStatus = new Label("");
         msStatus.setStyle("-fx-text-fill:#aaaacc;-fx-font-size:12px;");
+        msStatus.setWrapText(true);
 
-        Button loginBtn = new Button("✅  Giriş Yap");
-        loginBtn.setMaxWidth(Double.MAX_VALUE);
-        loginBtn.setStyle(
-            "-fx-background-color:linear-gradient(to right,#6c63ff,#3b82f6);" +
-            "-fx-text-fill:white;" +
-            "-fx-font-size:14px;" +
-            "-fx-font-weight:bold;" +
-            "-fx-background-radius:10;" +
-            "-fx-padding:12 24 12 24;" +
-            "-fx-cursor:hand;"
-        );
-
-        // Tarayıcıyı aç
         openBrowserBtn.setOnAction(e -> {
-            try {
-                AuthManager tmp = new AuthManager(PathManager.getGameDir());
-                String url = tmp.getMicrosoftAuthUrl();
-                new ProcessBuilder("xdg-open", url).start(); // Linux
-            } catch (Exception ex) {
-                msStatus.setText("❌ Tarayıcı açılamadı: " + ex.getMessage());
-            }
-        });
-
-        // Giriş yap
-        loginBtn.setOnAction(e -> {
-            String url = urlField.getText().trim();
-            if (!url.contains("code=")) {
-                msStatus.setStyle("-fx-text-fill:#f04040;-fx-font-size:12px;");
-                msStatus.setText("❌ Geçerli bir URL giriniz! (code= içermeli)");
-                return;
-            }
-            // URL'den code parametresini çıkar
-            String code = url.split("code=")[1].split("&")[0];
             msProgress.setVisible(true);
-            loginBtn.setDisable(true);
-
+            msProgress.setProgress(-1);
+            openBrowserBtn.setDisable(true);
+            msStatus.setStyle("-fx-text-fill:#f59e0b;-fx-font-size:12px;");
+            msStatus.setText("⏳ Tarayıcıda giriş yapın...");
             AuthManager auth = new AuthManager(PathManager.getGameDir());
-            new Thread(() -> {
-                try {
-                    AuthManager.Account acc = auth.loginMicrosoft(code, (msg, pct) ->
-                        Platform.runLater(() -> {
-                            msProgress.setProgress(pct / 100.0);
-                            msStatus.setStyle("-fx-text-fill:#f59e0b;-fx-font-size:12px;");
-                            msStatus.setText("⏳ " + msg);
-                        })
-                    );
-                    Platform.runLater(() -> {
-                        msStatus.setStyle("-fx-text-fill:#44dd88;-fx-font-size:12px;");
-                        msStatus.setText("✅ Giriş başarılı! Hoş geldin, " + acc.username);
-                        refreshAccountDisplay();
-                        loginBtn.setDisable(false);
-                    });
-                } catch (Exception ex) {
-                    Platform.runLater(() -> {
-                        msStatus.setStyle("-fx-text-fill:#f04040;-fx-font-size:12px;");
-                        msStatus.setText("❌ " + ex.getMessage());
-                        loginBtn.setDisable(false);
-                    });
-                }
-            }, "ms-auth").start();
+            auth.startMicrosoftAuthFlow(
+                (msg, pct) -> Platform.runLater(() -> {
+                    if (pct > 0) msProgress.setProgress(pct / 100.0);
+                    msStatus.setText("⏳ " + msg);
+                }),
+                acc -> Platform.runLater(() -> {
+                    msStatus.setStyle("-fx-text-fill:#44dd88;-fx-font-size:12px;");
+                    msStatus.setText("✅ Hoş geldin, " + acc.username + "!");
+                    msProgress.setProgress(1);
+                    openBrowserBtn.setDisable(false);
+                    refreshAccountDisplay();
+                }),
+                err -> Platform.runLater(() -> {
+                    msStatus.setStyle("-fx-text-fill:#f04040;-fx-font-size:12px;");
+                    msStatus.setText("❌ " + err);
+                    msProgress.setVisible(false);
+                    openBrowserBtn.setDisable(false);
+                })
+            );
         });
 
-        box.getChildren().addAll(info, openBrowserBtn, urlLabel, urlField,
-                                  msProgress, msStatus, loginBtn);
+        box.getChildren().addAll(info, openBrowserBtn, msProgress, msStatus);
         return box;
     }
 
-    private VBox buildOfflineTab() {
+        private VBox buildOfflineTab() {
         VBox box = new VBox(16);
 
         Label info = new Label("İnternet bağlantısı olmadan oynayabilirsin.\nBu mod sadece offline (cracked) sunucularda çalışır.");

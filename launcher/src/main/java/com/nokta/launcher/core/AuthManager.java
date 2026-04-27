@@ -3,7 +3,6 @@ package com.nokta.launcher.core;
 import com.google.gson.*;
 import okhttp3.*;
 import java.io.*;
-import java.net.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -11,12 +10,12 @@ import java.util.concurrent.*;
 public class AuthManager {
 
     private static final String CLIENT_ID    = "00000000402b5328";
-    private static final String REDIRECT_URI = "http://localhost:9876/auth";
+    private static final String REDIRECT_URI = "https://login.live.com/oauth20_desktop.srf";
     private static final String AUTH_URL     =
         "https://login.live.com/oauth20_authorize.srf" +
         "?client_id=" + CLIENT_ID +
         "&response_type=code" +
-        "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI, java.nio.charset.StandardCharsets.UTF_8) +
+        "&redirect_uri=https%3A%2F%2Flogin.live.com%2Foauth20_desktop.srf" +
         "&scope=XboxLive.signin%20offline_access";
 
     private final OkHttpClient http = new OkHttpClient.Builder()
@@ -48,50 +47,53 @@ public class AuthManager {
      * Tarayıcıyı aç, localhost:9876'da auth code'u bekle.
      * Callback: code yakalandığında loginMicrosoft() çağır.
      */
+    /**
+     * JavaFX WebView ile OAuth — redirect URI'yi intercept eder.
+     * JavaFX Application Thread'den çağrılmalı.
+     */
     public void startMicrosoftAuthFlow(ProgressCallback cb,
                                        AuthSuccessCallback onSuccess,
                                        ErrorCallback onError) {
-        new Thread(() -> {
-            try {
-                // Lokal HTTP server başlat
-                cb.update("Tarayıcı açılıyor...", 5);
-                ServerSocket server = new ServerSocket(9876);
-                server.setSoTimeout(120_000); // 2 dk timeout
+        // JavaFX thread'de WebView aç
+        javafx.application.Platform.runLater(() -> {
+            javafx.scene.web.WebView webView = new javafx.scene.web.WebView();
+            javafx.scene.web.WebEngine engine = webView.getEngine();
 
-                // Tarayıcıyı aç — cross-platform
-                openBrowser(AUTH_URL);
+            javafx.stage.Stage dialog = new javafx.stage.Stage();
+            dialog.setTitle("Microsoft ile Giriş Yap");
+            dialog.setWidth(520);
+            dialog.setHeight(680);
+            dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
 
-                cb.update("Giriş bekleniyor... (2 dk)", 10);
+            webView.setPrefSize(520, 640);
+            engine.load(AUTH_URL);
+            cb.update("Microsoft giriş sayfası yükleniyor...", 10);
 
-                // İlk bağlantıyı kabul et
-                Socket client = server.accept();
-                BufferedReader br = new BufferedReader(
-                    new InputStreamReader(client.getInputStream()));
-                String reqLine = br.readLine();
-
-                // Başarılı yanıt gönder
-                String response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n" +
-                    "<html><body style='font-family:sans-serif;text-align:center;padding:40px;background:#111;color:#fff'>" +
-                    "<h2>✅ Giriş başarılı!</h2><p>Launcher'a dönebilirsin.</p>" +
-                    "<script>setTimeout(()=>window.close(),2000)</script></body></html>";
-                client.getOutputStream().write(response.getBytes());
-                client.close();
-                server.close();
-
-                // Code'u parse et: "GET /auth?code=xxx HTTP/1.1"
-                if (reqLine == null || !reqLine.contains("code=")) {
-                    onError.onError("Geçersiz yanıt alındı.");
-                    return;
+            // URL değişimini dinle — redirect_uri'ye yönlenince code'u yakala
+            engine.locationProperty().addListener((obs, oldUrl, newUrl) -> {
+                if (newUrl != null && newUrl.startsWith(REDIRECT_URI)) {
+                    dialog.close();
+                    if (newUrl.contains("code=")) {
+                        try {
+                            String code = newUrl.split("code=")[1].split("[&]")[0];
+                            cb.update("Kod alındı, giriş yapılıyor...", 25);
+                            new Thread(() ->
+                                loginMicrosoft(code, cb, onSuccess, onError),
+                                "ms-auth").start();
+                        } catch (Exception e) {
+                            onError.onError("Kod ayrıştırılamadı: " + e.getMessage());
+                        }
+                    } else if (newUrl.contains("error=")) {
+                        onError.onError("Giriş iptal edildi.");
+                    }
                 }
-                String code = reqLine.split("code=")[1].split("[ &]")[0];
-                loginMicrosoft(code, cb, onSuccess, onError);
+            });
 
-            } catch (SocketTimeoutException e) {
-                onError.onError("Zaman aşımı — 2 dakika içinde giriş yapılmadı.");
-            } catch (Exception e) {
-                onError.onError("Hata: " + e.getMessage());
-            }
-        }, "ms-auth-server").start();
+            javafx.scene.Scene scene = new javafx.scene.Scene(
+                new javafx.scene.layout.StackPane(webView));
+            dialog.setScene(scene);
+            dialog.show();
+        });
     }
 
     private void loginMicrosoft(String code, ProgressCallback cb,

@@ -337,7 +337,7 @@ public class PlayScreen extends VBox {
                     com.nokta.launcher.core.ForgeInstaller fi =
                         new com.nokta.launcher.core.ForgeInstaller(PathManager.getGameDir());
                     String forgeId = fi.installForge(versionRef.get(), (msg, pct) ->
-                        Platform.runLater(() -> { progressLabel.setText(msg); addLog(msg); }));
+                        Platform.runLater(() -> { Platform.runLater(() -> progressLabel.setText(msg)); addLog(msg); }));
                     versionRef.set(forgeId);
                 } else if ("NeoForge".equals(loader)) {
                     Platform.runLater(() -> setStatus("⚒ NeoForge kuruluyor...", "#f59e0b"));
@@ -345,7 +345,7 @@ public class PlayScreen extends VBox {
                     com.nokta.launcher.core.ForgeInstaller fi =
                         new com.nokta.launcher.core.ForgeInstaller(PathManager.getGameDir());
                     String neoId = fi.installNeoForge(versionRef.get(), (msg, pct) ->
-                        Platform.runLater(() -> { progressLabel.setText(msg); addLog(msg); }));
+                        Platform.runLater(() -> { Platform.runLater(() -> progressLabel.setText(msg)); addLog(msg); }));
                     versionRef.set(neoId);
                 } else if ("Fabric".equals(loader)) {
                     Platform.runLater(() -> setStatus("🧵 Fabric kuruluyor...", "#f59e0b"));
@@ -353,7 +353,7 @@ public class PlayScreen extends VBox {
                     com.nokta.launcher.core.FabricInstaller fi =
                         new com.nokta.launcher.core.FabricInstaller(PathManager.getGameDir());
                     fi.install(versionRef.get(), (msg, pct) ->
-                        Platform.runLater(() -> { progressLabel.setText(msg); addLog(msg); }));
+                        Platform.runLater(() -> { Platform.runLater(() -> progressLabel.setText(msg)); addLog(msg); }));
                 }
 
                 Platform.runLater(() -> setStatus("🖼  Assets indiriliyor...", "#f59e0b"));

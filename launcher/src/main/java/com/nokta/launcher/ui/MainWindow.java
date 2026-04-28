@@ -289,7 +289,6 @@ public class MainWindow {
             buildNavBtn("🎮  Oyna",        false),
             buildNavBtn("🧩  Modlar",      false),
             buildNavBtn("⚡  Performans",  false),
-            buildNavBtn("📦  Sürümler",    false),
             buildNavBtn("👤  Hesap",       false)
         };
 
@@ -297,8 +296,7 @@ public class MainWindow {
         navBtns[1].setOnAction(e -> { setActive(1); showPlay(); });
         navBtns[2].setOnAction(e -> { setActive(2); showMods(); });
         navBtns[3].setOnAction(e -> { setActive(3); showPerformance(); });
-        navBtns[4].setOnAction(e -> { setActive(4); showVersions(); });
-        navBtns[5].setOnAction(e -> { setActive(5); showAccount(); });
+        navBtns[4].setOnAction(e -> { setActive(4); showAccount(); });
 
         VBox nav = new VBox(4);
         nav.getChildren().addAll(navBtns);
